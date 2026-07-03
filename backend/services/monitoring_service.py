@@ -195,6 +195,7 @@ class MonitoringService:
             "metrics": {
                 "total_predictions": snap["predictions_total"],
                 "accuracy_rate": model_metrics.get("auroc", 0.0),
+                "accuracy_model": model_metrics.get("primary_model"),
                 "active_data_sources": len(connected),
                 "active_alerts": len([a for a in alerts if not a["resolved"]]),
                 "avg_risk": snap["avg_risk"],

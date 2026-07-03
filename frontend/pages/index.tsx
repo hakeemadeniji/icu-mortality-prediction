@@ -2,15 +2,33 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Activity, Cpu, Database, Shield, Zap, Brain } from 'lucide-react'
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8054'
+
 export default function Home() {
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
   const [mounted, setMounted] = useState(false)
+  const [accuracy, setAccuracy] = useState<string | null>(null)
+  const [accuracyModel, setAccuracyModel] = useState<string | null>(null)
 
   useEffect(() => {
     setMounted(true)
     setCurrentTime(new Date())
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
-    return () => clearInterval(timer)
+
+    // Real, computed metric from the pipeline results (falls back to '—' offline)
+    const controller = new AbortController()
+    fetch(`${API_URL}/api/v1/evaluation/current-metrics`, { signal: controller.signal })
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((d) => {
+        if (typeof d.auroc === 'number') setAccuracy(`${(d.auroc * 100).toFixed(1)}%`)
+        if (d.primary_model) setAccuracyModel(d.primary_model)
+      })
+      .catch(() => {/* backend offline — leave placeholder */})
+
+    return () => {
+      clearInterval(timer)
+      controller.abort()
+    }
   }, [])
 
   // A handful of faint drifting particles (kept low for performance + calm UI)
@@ -25,7 +43,7 @@ export default function Home() {
 
   const stats = [
     { icon: Cpu, title: 'ACTIVE AGENTS', value: '21', subtitle: 'AI systems online' },
-    { icon: Activity, title: 'PREDICTION ACCURACY', value: '94.7%', subtitle: 'Validation AUROC' },
+    { icon: Activity, title: 'PREDICTION ACCURACY', value: accuracy ?? '—', subtitle: accuracyModel ? `${accuracyModel} AUROC` : 'Validation AUROC' },
     { icon: Database, title: 'DATA SOURCES', value: '6', subtitle: 'Integrated streams' },
     { icon: Shield, title: 'SYSTEM STATUS', value: 'OPTIMAL', subtitle: 'All systems nominal' },
     { icon: Zap, title: 'NEURAL INTERFACE', value: 'ACTIVE', subtitle: 'Ready for input' },
