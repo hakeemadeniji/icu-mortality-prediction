@@ -9,19 +9,34 @@ export default function Home() {
   const [mounted, setMounted] = useState(false)
   const [accuracy, setAccuracy] = useState<string | null>(null)
   const [accuracyModel, setAccuracyModel] = useState<string | null>(null)
+  const [activeAgents, setActiveAgents] = useState<string | null>(null)
+  const [dataSources, setDataSources] = useState<string | null>(null)
 
   useEffect(() => {
     setMounted(true)
     setCurrentTime(new Date())
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
 
-    // Real, computed metric from the pipeline results (falls back to '—' offline)
+    // Pull live values from the backend (each stat falls back to '—' if offline).
     const controller = new AbortController()
-    fetch(`${API_URL}/api/v1/evaluation/current-metrics`, { signal: controller.signal })
+    const opts = { signal: controller.signal }
+
+    // Real accuracy (computed AUROC) + connected data sources
+    fetch(`${API_URL}/api/v1/monitoring/analytics-summary`, opts)
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((d) => {
-        if (typeof d.auroc === 'number') setAccuracy(`${(d.auroc * 100).toFixed(1)}%`)
-        if (d.primary_model) setAccuracyModel(d.primary_model)
+        const m = d.metrics || {}
+        if (typeof m.accuracy_rate === 'number') setAccuracy(`${(m.accuracy_rate * 100).toFixed(1)}%`)
+        if (m.accuracy_model) setAccuracyModel(m.accuracy_model)
+        if (typeof m.active_data_sources === 'number') setDataSources(String(m.active_data_sources))
+      })
+      .catch(() => {/* backend offline — leave placeholders */})
+
+    // Live active-agent count
+    fetch(`${API_URL}/api/v1/agents/orchestration/status`, opts)
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((d) => {
+        if (typeof d.active_agents === 'number') setActiveAgents(String(d.active_agents))
       })
       .catch(() => {/* backend offline — leave placeholder */})
 
@@ -42,9 +57,9 @@ export default function Home() {
   }))
 
   const stats = [
-    { icon: Cpu, title: 'ACTIVE AGENTS', value: '21', subtitle: 'AI systems online' },
+    { icon: Cpu, title: 'ACTIVE AGENTS', value: activeAgents ?? '—', subtitle: 'AI systems online' },
     { icon: Activity, title: 'PREDICTION ACCURACY', value: accuracy ?? '—', subtitle: accuracyModel ? `${accuracyModel} AUROC` : 'Validation AUROC' },
-    { icon: Database, title: 'DATA SOURCES', value: '6', subtitle: 'Integrated streams' },
+    { icon: Database, title: 'DATA SOURCES', value: dataSources ?? '—', subtitle: 'Integrated streams' },
     { icon: Shield, title: 'SYSTEM STATUS', value: 'OPTIMAL', subtitle: 'All systems nominal' },
     { icon: Zap, title: 'NEURAL INTERFACE', value: 'ACTIVE', subtitle: 'Ready for input' },
     { icon: Brain, title: 'PROCESSING', value: 'REAL-TIME', subtitle: 'Low-latency inference' },
