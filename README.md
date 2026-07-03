@@ -303,6 +303,24 @@ npm cache clean --force
 - **SYSTEM_README.md**: Technical architecture details
 - **TRANSFORMATION_SUMMARY.md**: Project transformation history
 
+## Contributing
+
+`main` is protected: changes land via **pull request** and must pass CI —
+`Frontend (typecheck + build)` and `Backend (compile + import)` — before they can
+be merged. Force-pushes to `main` are blocked.
+
+```bash
+git checkout -b my-change
+# ...make changes...
+git commit -am "describe your change"
+git push -u origin my-change
+gh pr create --fill      # CI runs automatically on the PR
+gh pr merge --squash     # enabled once both checks are green
+```
+
+Repository admins retain a bypass for emergency direct pushes, but the
+PR + green-CI flow is the default.
+
 ## Contributors
 - **[Hakeem Adeniji](https://github.com/hakeemadeniji)** — project owner & lead
 - **Claude (Anthropic)** — AI pair programmer: interface rebuild, backend bring-up, and live Claude/GLM agent integration
