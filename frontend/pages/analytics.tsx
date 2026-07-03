@@ -85,8 +85,8 @@ function OverviewTab({ data }: any) {
         />
         <MetricCard
           title="ACCURACY RATE"
-          value={m ? `${(m.accuracy_rate * 100).toFixed(1)}%` : '94.7%'}
-          change="AUROC"
+          value={m ? `${(m.accuracy_rate * 100).toFixed(1)}%` : '—'}
+          change={m?.accuracy_model ? 'AUROC' : '—'}
           icon={<TrendingUp className="w-6 h-6" />}
           color="cyber-green"
         />

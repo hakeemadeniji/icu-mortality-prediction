@@ -155,9 +155,9 @@ async def get_evaluation_history(limit: int = 10):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/current-metrics", response_model=EvaluationMetrics)
+@router.get("/current-metrics")
 async def get_current_metrics():
-    """Get current model metrics."""
+    """Get current model metrics (real values from the pipeline results table)."""
     try:
         from services.evaluation_service import EvaluationService
         
