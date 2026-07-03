@@ -1,7 +1,9 @@
 # ICU Mortality Prediction System - Full-Stack AI Application
 
+[![CI](https://github.com/hakeemadeniji/icu-mortality-prediction/actions/workflows/ci.yml/badge.svg)](https://github.com/hakeemadeniji/icu-mortality-prediction/actions/workflows/ci.yml)
+
 ## Overview
-A production-ready full-stack AI application for ICU mortality prediction featuring 21 specialized AI agents, real-time analysis, and a Matrix-inspired black and green holographic interface with circular navigation layout.
+A full-stack AI application for ICU mortality prediction featuring 21 specialized AI agents, real-time analysis, and a black-and-green holographic interface with a clean responsive layout.
 
 ## Current State
 This project has been transformed from a research-focused multimodal deep learning study into a comprehensive production-ready application with:
@@ -206,47 +208,53 @@ icu-mortality-piration/
 3. **Agents** - Live monitoring of all 21 AI agents
 4. **Analytics** - System metrics and data source management
 
-## Quick Start
+## Run Locally
 
 ### Prerequisites
-- Python 3.11+
+- Python 3.11+  (3.12 recommended)
 - Node.js 18+
-- Anthropic API Key
-- GLM API Key
+- (Optional) Anthropic and/or GLM API keys — only needed for **live** AI-agent
+  narration. Without them the app still runs fully on the built-in heuristic
+  model and mock/real fallbacks.
 
-### Configuration
-1. **Edit backend/.env** - Add your API keys:
+### 1. Clone
 ```bash
-ANTHROPIC_API_KEY=your_anthropic_key_here
-GLM_API_KEY=your_glm_key_here
+git clone https://github.com/hakeemadeniji/icu-mortality-prediction.git
+cd icu-mortality-prediction
 ```
 
-### Start the System
-
-**Option 1: Automated (Windows)**
+### 2. Backend (Terminal 1)
 ```bash
-start_system.bat
-```
-
-**Option 2: Manual Startup**
-
-**Backend (Terminal 1):**
-```cmd
 cd backend
+python -m venv venv
+# Windows:
 venv\Scripts\activate
-python main.py
+# macOS/Linux:
+# source venv/bin/activate
+
+pip install -r requirements-api.txt          # minimal runtime deps
+cp .env.example .env                          # then add API keys if you have them
+
+# Start the API (canonical launcher: main:app so service globals resolve)
+python -m uvicorn main:app --host 127.0.0.1 --port 8054
+# Windows shortcut: double-click ../start_backend_now.bat
 ```
 
-**Frontend (Terminal 2):**
-```cmd
+### 3. Frontend (Terminal 2)
+```bash
 cd frontend
+npm install
 npm run dev
 ```
 
 ### Access Points
 - **Frontend Interface**: http://localhost:3054
 - **Backend API**: http://localhost:8054
-- **API Documentation**: http://localhost:8054/docs
+- **API Documentation** (Swagger): http://localhost:8054/docs
+
+> The full ML/research pipeline (training, SHAP, fairness) uses the heavier
+> `backend/requirements.txt` (torch/onnx/chromadb). You do **not** need it to run
+> the app — `requirements-api.txt` is enough.
 
 ## Ports Configuration
 - **Frontend**: 3054

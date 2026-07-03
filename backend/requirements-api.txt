@@ -1,0 +1,14 @@
+# Minimal runtime dependencies to run the FastAPI backend + live AI agents.
+# This is all you need for the app; the full ML pipeline deps are in
+# requirements.txt (heavy: torch/onnx/chromadb/…). Unpinned for portability
+# across Python versions.
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+python-dotenv
+python-multipart
+numpy
+httpx
+anthropic
+psutil
