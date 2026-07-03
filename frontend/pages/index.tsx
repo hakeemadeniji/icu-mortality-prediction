@@ -11,6 +11,8 @@ export default function Home() {
   const [accuracyModel, setAccuracyModel] = useState<string | null>(null)
   const [activeAgents, setActiveAgents] = useState<string | null>(null)
   const [dataSources, setDataSources] = useState<string | null>(null)
+  const [systemStatus, setSystemStatus] = useState<string | null>(null)
+  const [statusSubtitle, setStatusSubtitle] = useState('Checking services…')
 
   useEffect(() => {
     setMounted(true)
@@ -40,7 +42,27 @@ export default function Home() {
       })
       .catch(() => {/* backend offline — leave placeholder */})
 
+    // Live system health: OPTIMAL when every service reports healthy, else DEGRADED
+    const checkHealth = () =>
+      fetch(`${API_URL}/health`, { signal: controller.signal })
+        .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+        .then((d) => {
+          const services = d.services || {}
+          const total = Object.keys(services).length
+          const up = Object.values(services).filter(Boolean).length
+          const healthy = d.status === 'healthy' && total > 0 && up === total
+          setSystemStatus(healthy ? 'OPTIMAL' : 'DEGRADED')
+          setStatusSubtitle(healthy ? 'All services healthy' : `${up}/${total} services healthy`)
+        })
+        .catch(() => {
+          setSystemStatus('OFFLINE')
+          setStatusSubtitle('Backend unreachable')
+        })
+    checkHealth()
+    const healthTimer = setInterval(checkHealth, 15000) // keep status fresh
+
     return () => {
+      clearInterval(healthTimer)
       clearInterval(timer)
       controller.abort()
     }
@@ -56,11 +78,19 @@ export default function Home() {
     },
   }))
 
-  const stats = [
+  const statusTone =
+    systemStatus === 'DEGRADED'
+      ? 'text-cyber-yellow'
+      : systemStatus === 'OFFLINE'
+        ? 'text-cyber-red'
+        : 'text-cyber-green glow-text-green'
+
+  type Stat = { icon: any; title: string; value: string; subtitle: string; valueClass?: string }
+  const stats: Stat[] = [
     { icon: Cpu, title: 'ACTIVE AGENTS', value: activeAgents ?? '—', subtitle: 'AI systems online' },
     { icon: Activity, title: 'PREDICTION ACCURACY', value: accuracy ?? '—', subtitle: accuracyModel ? `${accuracyModel} AUROC` : 'Validation AUROC' },
     { icon: Database, title: 'DATA SOURCES', value: dataSources ?? '—', subtitle: 'Integrated streams' },
-    { icon: Shield, title: 'SYSTEM STATUS', value: 'OPTIMAL', subtitle: 'All systems nominal' },
+    { icon: Shield, title: 'SYSTEM STATUS', value: systemStatus ?? '—', subtitle: statusSubtitle, valueClass: statusTone },
     { icon: Zap, title: 'NEURAL INTERFACE', value: 'ACTIVE', subtitle: 'Ready for input' },
     { icon: Brain, title: 'PROCESSING', value: 'REAL-TIME', subtitle: 'Low-latency inference' },
   ]
@@ -176,7 +206,7 @@ export default function Home() {
                     <Icon className="w-6 h-6" />
                   </div>
                 </div>
-                <div className="text-3xl font-black font-mono text-cyber-green glow-text-green mb-1">
+                <div className={`text-3xl font-black font-mono mb-1 ${stat.valueClass || 'text-cyber-green glow-text-green'}`}>
                   {stat.value}
                 </div>
                 <div className="text-sm font-bold text-cyber-white tracking-wide">{stat.title}</div>
