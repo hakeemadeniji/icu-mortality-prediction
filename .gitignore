@@ -1,0 +1,55 @@
+# ── Secrets / environment (NEVER commit real keys) ──────────────
+.env
+.env.*
+!.env.example
+*.conda
+
+# ── Python ──────────────────────────────────────────────────────
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+*.egg-info/
+.pytest_cache/
+
+# ── Node / Next.js frontend ─────────────────────────────────────
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# ── Logs / databases ────────────────────────────────────────────
+logs/
+*.log
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Data (too large for Git) ────────────────────────────────────
+data/raw/
+data/processed/*.npy
+data/processed/*.csv
+data/synthea/
+*.gz
+
+# ── Model weights ───────────────────────────────────────────────
+results/tables/*.pt
+models/*.pt
+*.onnx
+
+# ── IDE ─────────────────────────────────────────────────────────
+.vscode/settings.json
+.idea/
+
+# ── OS ──────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Experiment tracking ─────────────────────────────────────────
+wandb/
+
+# ── Results (uncomment to track) ────────────────────────────────
+# results/figures/
+# results/tables/

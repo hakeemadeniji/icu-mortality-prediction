@@ -1,0 +1,381 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap');
+
+/* Tailwind layers — without these none of the layout utilities
+   (flex, grid, container, spacing, …) are generated. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --cyber-black: #000000;
+  --cyber-dark: #0a0f0c;
+  --cyber-green: #2bff88;
+  --cyber-green-dark: #12b866;
+  --cyber-green-light: #7dffb0;
+  --cyber-white: #eafff2;
+  /* Secondary / semantic accents (kept in sync with tailwind.config.js) */
+  --cyber-blue: #38bdf8;
+  --cyber-purple: #a78bfa;
+  --cyber-yellow: #fbbf24;
+  --cyber-red: #fb7185;
+  --holo-primary: rgba(43, 255, 136, 0.15);
+  --holo-secondary: rgba(18, 184, 102, 0.15);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--cyber-black);
+  color: var(--cyber-white);
+  font-family: 'Rajdhani', 'Orbitron', sans-serif;
+  overflow-x: hidden;
+  position: relative;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Soft holographic background wash */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(43, 255, 136, 0.08) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 25%, rgba(18, 184, 102, 0.06) 0%, transparent 45%),
+    radial-gradient(ellipse at 15% 85%, rgba(125, 255, 176, 0.05) 0%, transparent 45%);
+  z-index: -2;
+  pointer-events: none;
+}
+
+/* Subtle static grid — no perpetual motion, keeps text crisp */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(43, 255, 136, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(43, 255, 136, 0.04) 1px, transparent 1px);
+  background-size: 44px 44px;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* Floating holographic particles (kept few + faint) */
+.holo-particles {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.holo-particle {
+  position: absolute;
+  bottom: -10px;
+  width: 4px;
+  height: 4px;
+  background: var(--cyber-green);
+  border-radius: 50%;
+  animation: float 22s linear infinite;
+  opacity: 0.25;
+  box-shadow: 0 0 10px var(--cyber-green);
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0;
+  }
+  10% { opacity: 0.25; }
+  90% { opacity: 0.25; }
+  100% {
+    transform: translateY(-105vh) scale(1.2);
+    opacity: 0;
+  }
+}
+
+/* Very subtle scanning sheen */
+.scan-line {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(43, 255, 136, 0.03) 50%,
+    transparent 100%
+  );
+  animation: scan 12s linear infinite;
+  pointer-events: none;
+  z-index: 5;
+}
+
+@keyframes scan {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+/* Glowing text — restrained, static, stays readable */
+.glow-text {
+  text-shadow:
+    0 0 6px rgba(43, 255, 136, 0.55),
+    0 0 18px rgba(43, 255, 136, 0.28);
+}
+
+.glow-text-green {
+  text-shadow: 0 0 8px rgba(43, 255, 136, 0.5);
+}
+
+.glow-text-white {
+  text-shadow: 0 0 8px rgba(234, 255, 242, 0.5);
+}
+
+/* Holographic panel */
+.cyber-panel {
+  background: linear-gradient(150deg,
+    rgba(10, 15, 12, 0.92) 0%,
+    rgba(5, 8, 6, 0.88) 100%
+  );
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(43, 255, 136, 0.28);
+  border-radius: 14px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  box-shadow:
+    0 0 0 1px rgba(43, 255, 136, 0.04),
+    0 8px 30px rgba(0, 0, 0, 0.55);
+}
+
+.cyber-panel:hover {
+  transform: translateY(-3px);
+  border-color: rgba(43, 255, 136, 0.55);
+  box-shadow:
+    0 0 24px rgba(43, 255, 136, 0.16),
+    0 14px 40px rgba(0, 0, 0, 0.65);
+}
+
+/* Thin accent line on top of panels */
+.cyber-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg,
+    transparent,
+    var(--cyber-green),
+    var(--cyber-green-light),
+    var(--cyber-green),
+    transparent
+  );
+  opacity: 0.7;
+}
+
+/* Optional faint scanline overlay for panels that opt in */
+.cyber-panel .panel-scan,
+.holo-card .panel-scan {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 4px,
+    rgba(43, 255, 136, 0.03) 4px,
+    rgba(43, 255, 136, 0.03) 8px
+  );
+  pointer-events: none;
+}
+
+/* Corner HUD decorations — subtle */
+.hud-corner::before,
+.hud-corner::after {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--cyber-green);
+  opacity: 0.7;
+  transition: all 0.3s ease;
+  pointer-events: none;
+}
+
+.hud-corner::before {
+  top: 8px;
+  left: 8px;
+  border-right: none;
+  border-bottom: none;
+}
+
+.hud-corner::after {
+  bottom: 8px;
+  right: 8px;
+  border-left: none;
+  border-top: none;
+}
+
+.hud-corner:hover::before,
+.hud-corner:hover::after {
+  width: 24px;
+  height: 24px;
+  border-color: var(--cyber-green-light);
+  opacity: 1;
+}
+
+/* Holographic card (home stat tiles) */
+.holo-card {
+  background: linear-gradient(150deg,
+    rgba(10, 15, 12, 0.92) 0%,
+    rgba(5, 8, 6, 0.85) 100%
+  );
+  border: 1px solid rgba(43, 255, 136, 0.24);
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+
+.holo-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(43, 255, 136, 0.6);
+  box-shadow:
+    0 0 28px rgba(43, 255, 136, 0.18),
+    0 16px 44px rgba(0, 0, 0, 0.6);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--cyber-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--cyber-green-dark);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--cyber-green);
+}
+
+/* Buttons */
+.cyber-button {
+  background: linear-gradient(135deg,
+    rgba(43, 255, 136, 0.08) 0%,
+    rgba(18, 184, 102, 0.05) 100%
+  );
+  border: 1px solid var(--cyber-green);
+  color: var(--cyber-green);
+  font-family: 'Orbitron', monospace;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  border-radius: 10px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.25s ease;
+  box-shadow: 0 0 0 1px rgba(43, 255, 136, 0.05), 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+
+.cyber-button:hover {
+  background: linear-gradient(135deg,
+    rgba(43, 255, 136, 0.2) 0%,
+    rgba(18, 184, 102, 0.16) 100%
+  );
+  box-shadow: 0 0 22px rgba(43, 255, 136, 0.3), 0 8px 24px rgba(0, 0, 0, 0.5);
+  transform: translateY(-2px);
+  border-color: var(--cyber-green-light);
+  color: var(--cyber-white);
+}
+
+.cyber-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Inputs */
+.cyber-input {
+  width: 100%;
+  background: rgba(10, 15, 12, 0.8);
+  border: 1px solid rgba(43, 255, 136, 0.28);
+  color: var(--cyber-white);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 15px;
+  transition: all 0.25s ease;
+}
+
+.cyber-input:focus {
+  outline: none;
+  border-color: var(--cyber-green);
+  box-shadow: 0 0 0 3px rgba(43, 255, 136, 0.15);
+}
+
+.cyber-input::placeholder {
+  color: rgba(234, 255, 242, 0.4);
+}
+
+/* Status text */
+.status-online {
+  color: var(--cyber-green);
+  text-shadow: 0 0 8px rgba(43, 255, 136, 0.6);
+}
+
+.status-offline {
+  color: var(--cyber-red);
+  text-shadow: 0 0 8px rgba(251, 113, 133, 0.6);
+}
+
+.status-warning {
+  color: var(--cyber-yellow);
+  text-shadow: 0 0 8px rgba(251, 191, 36, 0.6);
+}
+
+/* Loading spinner */
+.cyber-loader {
+  width: 64px;
+  height: 64px;
+  border: 3px solid rgba(43, 255, 136, 0.15);
+  border-top-color: var(--cyber-green);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Section title helper */
+.section-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(43, 255, 136, 0.28);
+  position: relative;
+}
+
+.section-title::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 90px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--cyber-green), transparent);
+}

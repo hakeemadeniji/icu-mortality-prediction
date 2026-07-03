@@ -1,0 +1,57 @@
+# ── ICU Mortality Prediction — Pinned Requirements ──
+# Python 3.14 | CPU-only PyTorch
+# Install PyTorch stack first (CPU build from PyTorch index):
+#   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+# Then install the rest:
+#   pip install -r requirements.txt
+
+# ── PyTorch (CPU) ──────────────────────────────────────
+torch==2.11.0+cpu
+torchvision==0.26.0+cpu
+torchaudio==2.11.0+cpu
+
+# ── Data science foundations ───────────────────────────
+numpy==2.4.3
+pandas==3.0.2
+scipy==1.17.1
+matplotlib==3.10.9
+seaborn==0.13.2
+scikit-learn==1.8.0
+statsmodels==0.14.6
+
+# ── Gradient boosting ──────────────────────────────────
+xgboost==3.2.0
+lightgbm==4.6.0
+
+# ── NLP / pretrained models ────────────────────────────
+transformers==5.6.2
+datasets==4.8.4
+tokenizers==0.22.2
+safetensors==0.7.0
+huggingface-hub==1.12.0
+
+# ── Interpretability & fairness ────────────────────────
+shap==0.51.0
+aif360==0.6.1
+
+# ── Experiment tracking ────────────────────────────────
+wandb==0.26.1
+
+# ── Storage & serialisation ────────────────────────────
+pyarrow==24.0.0
+openpyxl==3.1.5
+pyyaml==6.0.3
+
+# ── Database connectivity ──────────────────────────────
+psycopg2-binary==2.9.12
+
+# ── Utilities ──────────────────────────────────────────
+tqdm==4.67.3
+requests==2.33.1
+
+# ── Jupyter ────────────────────────────────────────────
+jupyter==1.1.1
+notebook==7.5.5
+ipykernel==7.2.0
+ipywidgets==8.1.8
+jupyterlab==4.5.6

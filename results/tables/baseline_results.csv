@@ -1,0 +1,5 @@
+,auroc,auprc,f1
+Logistic Regression,1.0,1.0,1.0
+Random Forest,1.0,1.0,1.0
+XGBoost,1.0,1.0,1.0
+LightGBM,0.8846153846153846,0.25,0.0

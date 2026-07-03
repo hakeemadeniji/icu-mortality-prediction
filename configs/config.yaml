@@ -1,0 +1,95 @@
+# ── ICU Mortality Prediction Configuration ──
+
+data:
+  source: "synthea"  # "synthea" or "mimic"
+  mimic_dir: "data/raw/mimic-iv"
+  synthea_dir: "data/synthea"
+  processed_dir: "data/processed"
+  observation_window_hours: 48  # First N hours of ICU stay
+  test_size: 0.15
+  val_size: 0.15
+  random_seed: 42
+
+features:
+  vitals:
+    - heart_rate
+    - systolic_bp
+    - diastolic_bp
+    - mean_bp
+    - respiratory_rate
+    - temperature
+    - spo2
+  labs:
+    - glucose
+    - potassium
+    - sodium
+    - chloride
+    - creatinine
+    - bun
+    - hemoglobin
+    - hematocrit
+    - wbc
+    - platelets
+    - bicarbonate
+    - lactate
+  demographics:
+    - age
+    - gender
+    - ethnicity
+  max_sequence_length: 48  # One entry per hour
+
+model:
+  # Baseline
+  baseline_type: "xgboost"  # "logistic", "xgboost", "lightgbm"
+
+  # LSTM Encoder
+  lstm:
+    input_dim: 17   # vitals + labs features
+    hidden_dim: 128
+    num_layers: 2
+    dropout: 0.3
+    bidirectional: true
+
+  # Transformer Encoder
+  transformer:
+    d_model: 128
+    nhead: 8
+    num_layers: 3
+    dim_feedforward: 256
+    dropout: 0.2
+
+  # Text Encoder
+  text:
+    pretrained_model: "emilyalsentzer/Bio_ClinicalBERT"
+    max_tokens: 512
+    freeze_bert: true  # Fine-tune only classification head initially
+    projection_dim: 128
+
+  # Fusion
+  fusion:
+    method: "cross_attention"  # "concat", "gated", "cross_attention"
+    hidden_dim: 128
+    dropout: 0.3
+
+training:
+  batch_size: 64
+  epochs: 50
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  early_stopping_patience: 7
+  class_weight: "balanced"  # Handle mortality class imbalance
+  device: "auto"  # "cpu", "cuda", "mps", "auto"
+
+evaluation:
+  metrics:
+    - auroc
+    - auprc
+    - f1
+    - accuracy
+    - sensitivity
+    - specificity
+    - calibration
+  fairness_attributes:
+    - gender
+    - ethnicity
+    - age_group

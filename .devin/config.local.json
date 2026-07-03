@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Exec(cmd)",
+      "Exec(C:\\Users\\adeni\\Documents\\icu-mortality-prediction\\backend\\venv\\Scripts\\python.exe)",
+      "Exec(powershell)",
+      "Exec(cd frontend)",
+      "Exec(npm)",
+      "Exec(START_FRONTEND.bat)"
+    ]
+  }
+}

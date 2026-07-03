@@ -1,0 +1,33 @@
+name: icu-predict
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - numpy
+  - pandas
+  - scipy
+  - matplotlib
+  - seaborn
+  - scikit-learn
+  - jupyter
+  - notebook
+  - ipykernel
+  - statsmodels
+  - pytorch>=2.0
+  - torchaudio
+  - torchvision
+  - pip
+  - pip:
+    - transformers>=4.35
+    - datasets
+    - xgboost
+    - lightgbm
+    - shap
+    - aif360
+    - pyyaml
+    - tqdm
+    - wandb
+    - openpyxl
+    - pyarrow
