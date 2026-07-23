@@ -1104,6 +1104,15 @@ _SCORERS = [
     score_apache2, score_saps2,
 ]
 
+# Risk direction of each score's numeric value.
+#  +1: higher score = higher risk;  -1: lower score = higher risk (ROX, PaO2/FiO2).
+# Used by validation/analytics to orient a score toward increasing risk.
+RISK_DIRECTION = {
+    "news2": 1, "qsofa": 1, "sofa": 1, "sirs": 1, "curb65": 1,
+    "shock_index": 1, "rox": -1, "pf_ratio": -1, "kdigo_aki": 1,
+    "apache2": 1, "saps2": 1,
+}
+
 
 def assess(snapshot: Dict[str, Any]) -> Dict[str, Any]:
     """Run every score over the snapshot and build a prioritized summary."""
