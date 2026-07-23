@@ -20,13 +20,113 @@ in api/risk.py). Missing values are None.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, List, Optional
 
+# Version of the clinical scoring engine. Bump on ANY change to a score's
+# points/thresholds/logic so results are traceable to an exact algorithm.
+ENGINE_VERSION = "1.0.0"
+
 # Risk bands, ordered by severity (used to compute an overall level).
 BANDS = ["low", "low-medium", "medium", "high", "critical"]
 _BAND_RANK = {b: i for i, b in enumerate(BANDS)}
+
+# Intended-use / limitations metadata surfaced with every assessment (safety).
+INTENDED_USE = {
+    "intended_use": (
+        "Decision support for qualified adult-ICU clinicians: computes validated "
+        "early-warning and severity-of-illness scores from a patient snapshot to aid "
+        "recognition of deterioration, sepsis, and organ dysfunction."
+    ),
+    "intended_users": "Qualified clinicians (physicians, nurses, intensivists).",
+    "population": "Adult intensive-care / acutely-ill inpatients.",
+    "not_for": (
+        "NOT a validated medical device. Not for autonomous diagnosis or treatment, "
+        "not validated for pediatric/neonatal or non-ICU populations, and never a "
+        "substitute for clinical judgement or local protocols."
+    ),
+    "engine_version": ENGINE_VERSION,
+}
+
+# Plausible physiologic ranges (min, max, unit). Values outside these are flagged
+# — a data-quality safeguard so scores aren't computed silently on impossible input.
+PARAM_RANGES: Dict[str, tuple] = {
+    "age": (0, 120, "yr"),
+    "heart_rate": (10, 300, "bpm"),
+    "resp_rate": (2, 80, "/min"),
+    "sbp": (30, 300, "mmHg"),
+    "dbp": (10, 200, "mmHg"),
+    "map": (20, 250, "mmHg"),
+    "temperature": (25, 45, "°C"),
+    "spo2": (30, 100, "%"),
+    "fio2": (0.21, 1.0, "fraction"),
+    "gcs": (3, 15, ""),
+    "wbc": (0, 200, "x10^3/µL"),
+    "platelets": (0, 2000, "x10^3/µL"),
+    "bilirubin": (0, 80, "mg/dL"),
+    "creatinine": (0, 25, "mg/dL"),
+    "baseline_creatinine": (0, 25, "mg/dL"),
+    "bun": (0, 300, "mg/dL"),
+    "urea": (0, 100, "mmol/L"),
+    "lactate": (0, 40, "mmol/L"),
+    "pao2": (20, 700, "mmHg"),
+    "paco2": (5, 200, "mmHg"),
+    "arterial_ph": (6.5, 8.0, ""),
+    "sodium": (90, 200, "mmol/L"),
+    "potassium": (1.0, 10.0, "mmol/L"),
+    "bicarbonate": (2, 60, "mEq/L"),
+    "hematocrit": (5, 75, "%"),
+    "urine_output_ml": (0, 12000, "mL/24h"),
+}
+
+
+def validate_inputs(snapshot: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Return structured warnings for implausible / inconsistent inputs.
+
+    Never raises and never drops values — it flags them so the caller (and the
+    clinician) can see a data-quality issue rather than trust a silently-computed
+    score. A device-grade input safeguard.
+    """
+    warnings: List[Dict[str, Any]] = []
+    for k, (lo, hi, unit) in PARAM_RANGES.items():
+        v = _num(snapshot.get(k))
+        if v is None:
+            continue
+        val = v / 100.0 if (k == "fio2" and v > 1.0) else v  # accept FiO2 as %
+        if val < lo or val > hi:
+            warnings.append({
+                "field": k,
+                "value": v,
+                "severity": "warning",
+                "message": f"{k}={v} outside plausible range {lo}–{hi} {unit}".strip(),
+            })
+    # Cross-field consistency checks
+    sbp, dbp = _num(snapshot.get("sbp")), _num(snapshot.get("dbp"))
+    if sbp is not None and dbp is not None and dbp >= sbp:
+        warnings.append({
+            "field": "dbp", "value": dbp, "severity": "warning",
+            "message": f"diastolic ({dbp}) ≥ systolic ({sbp}) BP",
+        })
+    gcs = _num(snapshot.get("gcs"))
+    if gcs is not None and gcs != round(gcs):
+        warnings.append({
+            "field": "gcs", "value": gcs, "severity": "warning",
+            "message": "GCS should be an integer 3–15",
+        })
+    return warnings
+
+
+def _input_hash(snapshot: Dict[str, Any]) -> str:
+    """Deterministic short hash of the (non-null) inputs + engine version.
+
+    Enables reproducibility/traceability: the same inputs on the same engine
+    version always yield the same hash (and the same result)."""
+    norm = {k: snapshot.get(k) for k in sorted(snapshot) if snapshot.get(k) is not None}
+    payload = json.dumps({"v": ENGINE_VERSION, "in": norm}, sort_keys=True, default=str)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
 
 @dataclass
@@ -1035,11 +1135,15 @@ def assess(snapshot: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     return {
+        "engine_version": ENGINE_VERSION,
+        "input_hash": _input_hash(snapshot),
+        "input_warnings": validate_inputs(snapshot),
         "overall_risk": overall,
         "scores": [r.as_dict() for r in results],
         "alerts": alerts,
         "computed_count": len(computed),
         "total_scores": len(results),
+        "intended_use": INTENDED_USE,
         "disclaimer": (
             "Decision-support only. Not a validated medical device. Scores follow "
             "published guidelines but must be validated locally and interpreted by a "
