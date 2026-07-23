@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Activity, Cpu, Database, Shield, Zap, Brain } from 'lucide-react'
+import { Activity, Cpu, Database, Shield, Zap, Brain, HeartPulse } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8054'
 
@@ -96,6 +96,12 @@ export default function Home() {
   ]
 
   const navItems = [
+    {
+      title: 'CLINICAL RISK PANEL',
+      description: 'Multi-score early-warning assessment (NEWS2, qSOFA, SOFA, CURB-65, …).',
+      icon: HeartPulse,
+      href: '/risk',
+    },
     {
       title: 'PREDICTION DASHBOARD',
       description: 'Real-time mortality risk assessment with AI-powered analysis.',
@@ -219,7 +225,7 @@ export default function Home() {
         </section>
 
         {/* Navigation */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {navItems.map((item, i) => {
             const Icon = item.icon
             return (

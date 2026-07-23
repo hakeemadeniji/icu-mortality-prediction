@@ -3,6 +3,7 @@ import { Brain } from 'lucide-react'
 const links = [
   { href: '/', label: 'HOME' },
   { href: '/dashboard', label: 'DASHBOARD' },
+  { href: '/risk', label: 'RISK' },
   { href: '/agents', label: 'AGENTS' },
   { href: '/analytics', label: 'ANALYTICS' },
 ]

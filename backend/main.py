@@ -10,7 +10,7 @@ import logging
 from pathlib import Path
 
 # Import API routers
-from api import prediction, agents, data, monitoring, evaluation
+from api import prediction, agents, data, monitoring, evaluation, risk
 from core.config import settings
 from core.logging import setup_logging
 from services.model_service import ModelService
@@ -87,6 +87,7 @@ app.include_router(agents.router, prefix="/api/v1/agents", tags=["agents"])
 app.include_router(data.router, prefix="/api/v1/data", tags=["data"])
 app.include_router(monitoring.router, prefix="/api/v1/monitoring", tags=["monitoring"])
 app.include_router(evaluation.router, prefix="/api/v1/evaluation", tags=["evaluation"])
+app.include_router(risk.router, prefix="/api/v1/risk", tags=["risk"])
 
 
 @app.get("/")
