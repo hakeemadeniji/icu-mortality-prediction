@@ -59,7 +59,7 @@ def test_run_reports_fairness_subgroups():
 
     rep = validate_scores.run(n=1200, seed=5)
     fair = rep["fairness"]
-    assert set(fair) == {"by_sex", "by_age"}
+    assert set(fair) == {"by_sex", "by_age", "by_ethnicity"}
     # Both sexes present, each with per-headline-score AUROC
     assert {"M", "F"}.issubset(set(fair["by_sex"]))
     assert fair["by_sex"]["M"]["auroc"].get("saps2") is not None
@@ -68,3 +68,6 @@ def test_run_reports_fairness_subgroups():
     assert len(fair["by_age"]) >= 3
     for grp in fair["by_age"].values():
         assert grp["n"] > 0 and grp["event_rate"] is not None
+    # Ethnicity axis present and populated
+    assert {"White", "Black"}.issubset(set(fair["by_ethnicity"]))
+    assert fair["by_ethnicity"]["White"]["auroc"].get("saps2") is not None

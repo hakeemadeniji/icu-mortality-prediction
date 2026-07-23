@@ -12,7 +12,7 @@ from services import clinical_scores as cs
 from services import mimic_adapter as ma
 
 COLUMNS = [
-    "age", "gender", "mortality", "heart_rate_max", "sbp_min", "dbp_min", "mbp_min",
+    "age", "gender", "race", "mortality", "heart_rate_max", "sbp_min", "dbp_min", "mbp_min",
     "resp_rate_max", "temperature_min", "temperature_max", "spo2_min", "gcs_min",
     "wbc_max", "platelets_min", "bilirubin_max", "creatinine_max", "bun_max",
     "sodium_min", "sodium_max", "potassium_min", "potassium_max", "bicarbonate_min",
@@ -21,7 +21,8 @@ COLUMNS = [
 ]
 
 SICK = {
-    "age": 72, "gender": "M", "mortality": 1, "heart_rate_max": 130, "sbp_min": 82,
+    "age": 72, "gender": "M", "race": "BLACK/AFRICAN AMERICAN", "mortality": 1,
+    "heart_rate_max": 130, "sbp_min": 82,
     "dbp_min": 48, "mbp_min": 60, "resp_rate_max": 30, "temperature_min": 35.2,
     "temperature_max": 39.4, "spo2_min": 88, "gcs_min": 11, "wbc_max": 18,
     "platelets_min": 90, "bilirubin_max": 2.4, "creatinine_max": 3.1, "bun_max": 40,
@@ -30,7 +31,8 @@ SICK = {
     "ph_min": 7.28, "lactate_max": 4.2, "fio2_max": 60, "urineoutput": 400, "vent_flag": 1,
 }
 WELL = {
-    "age": 55, "gender": "F", "mortality": 0, "heart_rate_max": 88, "sbp_min": 118,
+    "age": 55, "gender": "F", "race": "WHITE - OTHER EUROPEAN", "mortality": 0,
+    "heart_rate_max": 88, "sbp_min": 118,
     "dbp_min": 70, "mbp_min": 86, "resp_rate_max": 18, "temperature_min": 36.6,
     "temperature_max": 37.2, "spo2_min": 97, "gcs_min": 15, "wbc_max": 8,
     "platelets_min": 240, "bilirubin_max": 0.6, "creatinine_max": 0.9, "bun_max": 14,
@@ -73,6 +75,9 @@ def test_adapter_maps_and_normalizes(tmp_path):
     assert s0["confusion"] is True       # GCS 11 < 14
     assert s0["mechanical_ventilation"] is True
 
+    # Ethnicity normalized from free-text `race`
+    assert s0["ethnicity"] == "Black" and s1["ethnicity"] == "White"
+
     # Well patient: room air, no vent/confusion, missing labs -> None
     assert abs(s1["fio2"] - 0.21) < 1e-9
     assert s1["on_supplemental_o2"] is False
@@ -88,6 +93,17 @@ def test_adapter_output_feeds_the_engine(tmp_path):
     # A rich snapshot should compute the full panel including the mortality scores.
     keys = {s["key"] for s in result["scores"] if s["computable"]}
     assert {"news2", "sofa", "apache2", "saps2"}.issubset(keys)
+
+
+def test_ethnicity_normalization():
+    cases = {
+        "WHITE": "White", "BLACK/AFRICAN AMERICAN": "Black",
+        "HISPANIC/LATINO - PUERTO RICAN": "Hispanic", "ASIAN - CHINESE": "Asian",
+        "UNKNOWN": "Unknown", "PATIENT DECLINED TO ANSWER": "Unknown",
+        "AMERICAN INDIAN/ALASKA NATIVE": "Other", "": "Unknown", None: "Unknown",
+    }
+    for raw, expected in cases.items():
+        assert ma._ethnicity_group(raw) == expected, raw
 
 
 def test_empty_csv_raises(tmp_path):

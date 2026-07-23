@@ -51,6 +51,13 @@ def _saps2_probability(score: float) -> float:
 # Headline mortality scores used for the fairness/subgroup tables.
 HEADLINE = ["sofa", "apache2", "saps2", "news2"]
 
+# Fairness dimensions: (snapshot key, report section, table title).
+DIMENSIONS = [
+    ("sex", "by_sex", "By sex"),
+    ("age", "by_age", "By age group"),
+    ("ethnicity", "by_ethnicity", "By ethnicity"),
+]
+
 
 def _age_group(a) -> str:
     if a is None:
@@ -62,12 +69,17 @@ def _age_group(a) -> str:
     return "80+"
 
 
+def _label(snap: Dict, dim: str) -> str:
+    if dim == "age":
+        return _age_group(snap.get("age"))
+    if dim == "ethnicity":
+        return snap.get("ethnicity") or "Unknown"
+    return snap.get("sex") or "U"
+
+
 def _dimension(cohort, outcomes, score_data, dim: str) -> Dict:
     """Per-subgroup n/event-rate (cohort-level) + AUROC per headline score."""
-    labels = [
-        (snap.get("sex") or "U") if dim == "sex" else _age_group(snap.get("age"))
-        for snap in cohort
-    ]
+    labels = [_label(snap, dim) for snap in cohort]
     groups: Dict[str, Dict] = {}
     for lab in sorted(set(labels)):
         idx = [i for i, l in enumerate(labels) if l == lab]
@@ -81,7 +93,7 @@ def _dimension(cohort, outcomes, score_data, dim: str) -> Dict:
         d = score_data.get(key)
         if not d:
             continue
-        for lab, rep in vm.subgroup_metrics(d["preds"], d["ys"], d[dim]).items():
+        for lab, rep in vm.subgroup_metrics(d["preds"], d["ys"], d["labels"][dim]).items():
             if lab in groups:
                 groups[lab]["auroc"][key] = rep["auroc"]
     return groups
@@ -93,7 +105,8 @@ def run(n: int = 3000, seed: int = 42) -> Dict:
     per_score: Dict[str, Dict] = {}
     score_data: Dict[str, Dict] = {}
     for scorer in cs._SCORERS:
-        preds, ys, sexes, ages = [], [], [], []
+        preds, ys = [], []
+        labels: Dict[str, list] = {dim: [] for dim, _, _ in DIMENSIONS}
         name = key = None
         for snap, y in zip(cohort, outcomes):
             r = scorer(snap)
@@ -101,10 +114,10 @@ def run(n: int = 3000, seed: int = 42) -> Dict:
             if r.computable and isinstance(r.score, (int, float)):
                 preds.append(DIRECTION.get(r.key, 1) * float(r.score))
                 ys.append(y)
-                sexes.append(snap.get("sex") or "U")
-                ages.append(_age_group(snap.get("age")))
+                for dim, _, _ in DIMENSIONS:
+                    labels[dim].append(_label(snap, dim))
         per_score[key] = {"name": name, "n": len(preds), "auroc": vm.auroc(preds, ys)}
-        score_data[key] = {"preds": preds, "ys": ys, "sex": sexes, "age": ages}
+        score_data[key] = {"preds": preds, "ys": ys, "labels": labels}
 
     # SAPS II calibration against its predicted-mortality probability
     saps_probs, saps_y = [], []
@@ -116,8 +129,8 @@ def run(n: int = 3000, seed: int = 42) -> Dict:
     saps_cal = vm.validate(saps_probs, saps_y, is_probability=True)
 
     fairness = {
-        "by_sex": _dimension(cohort, outcomes, score_data, "sex"),
-        "by_age": _dimension(cohort, outcomes, score_data, "age"),
+        sect: _dimension(cohort, outcomes, score_data, dim)
+        for dim, sect, _ in DIMENSIONS
     }
 
     return {
@@ -204,7 +217,7 @@ def write_report(report: Dict) -> None:
             "subgroups — can indicate inequitable performance and warrants investigation "
             "before deployment.\n"
         )
-        for dim_title, dim_key in (("By sex", "by_sex"), ("By age group", "by_age")):
+        for _dim, dim_key, dim_title in DIMENSIONS:
             groups = fair.get(dim_key, {})
             if not groups:
                 continue
