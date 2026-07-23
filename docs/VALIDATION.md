@@ -98,11 +98,25 @@ Verification (§2) proves the scores are computed **correctly**. Clinical valida
 asks whether they **discriminate and are well-calibrated on the deploying
 population** — this requires a labeled outcome cohort and is the key remaining step.
 
-**Provided:** a tested validation harness (`services/validation_metrics.py`) that,
-given `(predictions, outcomes)`, reports **AUROC** (discrimination), **Brier score**,
-and a **calibration table** (reliability). This is the instrument; it needs data.
+**Provided:**
+- A tested validation harness (`services/validation_metrics.py`) that, given
+  `(predictions, outcomes)`, reports **AUROC** (discrimination), **Brier score**, and
+  a **calibration table** (reliability).
+- A reproducible **functional benchmark** on a seeded synthetic multi-organ cohort
+  (`services/synthetic_cohort.py`, runner `validate_scores.py`) whose mortality is
+  driven by organ-failure burden independent of the scores. Results:
+  **[docs/VALIDATION_RESULTS.md](VALIDATION_RESULTS.md)** — every score discriminates
+  (AUROC ≈ 0.67–0.81), with multi-organ severity scores (SOFA, APACHE II, SAPS II)
+  and NEWS2 leading, as expected. It also demonstrates the harness detecting
+  **SAPS II miscalibration** (under-prediction) — i.e. why local recalibration is
+  needed. This is a *functional* validation of the engine, **not** clinical evidence.
 
-**Validation plan (to generate evidence):**
+> The synthetic benchmark proves the engine computes/orders risk correctly and that
+> the validation tooling works. It is **not** evidence of performance on real
+> patients. Point `validate_scores.load_cohort` at a real labeled ICU cohort to
+> generate clinical evidence.
+
+**Validation plan (to generate real evidence):**
 1. Assemble a retrospective adult-ICU cohort with the score inputs at a defined
    time origin (e.g. first 24 h) and the outcome (e.g. in-hospital mortality).
 2. Run each score over the cohort; compute AUROC + calibration with the harness,
