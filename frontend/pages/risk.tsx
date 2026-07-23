@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Activity, AlertTriangle, HeartPulse, Stethoscope, FlaskConical } from 'lucide-react'
+import { Activity, AlertTriangle, HeartPulse, Stethoscope, FlaskConical, TrendingUp } from 'lucide-react'
 import TopNav from '@/components/TopNav'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8054'
@@ -79,6 +79,23 @@ const FLAGS: FieldDef[] = [
   { key: 'aids', label: 'AIDS' },
 ]
 
+// Fields captured for a follow-up reading (enough for NEWS2 trend + lactate clearance).
+const TREND_FIELDS: FieldDef[] = [
+  { key: 'heart_rate', label: 'Heart rate', unit: 'bpm' },
+  { key: 'resp_rate', label: 'Resp. rate', unit: '/min' },
+  { key: 'sbp', label: 'Systolic BP', unit: 'mmHg' },
+  { key: 'temperature', label: 'Temperature', unit: '°C', step: 0.1 },
+  { key: 'spo2', label: 'SpO₂', unit: '%' },
+  { key: 'gcs', label: 'GCS', unit: '3–15' },
+  { key: 'lactate', label: 'Lactate', unit: 'mmol/L', step: 0.1 },
+]
+
+// Later reading — defaults show a deteriorating trajectory for demonstration.
+const defaultFollowup: Record<string, any> = {
+  hours: 6, heart_rate: 128, resp_rate: 30, sbp: 84, temperature: 39.2,
+  spo2: 87, on_supplemental_o2: true, gcs: 12, lactate: 4.4,
+}
+
 export default function RiskPage() {
   const [form, setForm] = useState<Record<string, any>>(defaultForm)
   const [result, setResult] = useState<any>(null)
@@ -103,6 +120,38 @@ export default function RiskPage() {
       setResult(null)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Trend / follow-up state
+  const [followup, setFollowup] = useState<Record<string, any>>(defaultFollowup)
+  const [trend, setTrend] = useState<any>(null)
+  const [trendLoading, setTrendLoading] = useState(false)
+  const [trendError, setTrendError] = useState<string | null>(null)
+  const setFu = (k: string, v: any) => setFollowup((f) => ({ ...f, [k]: v }))
+
+  const assessTrend = async () => {
+    setTrendLoading(true)
+    setTrendError(null)
+    try {
+      const { hours, ...fu } = followup
+      const res = await fetch(`${API_URL}/api/v1/risk/trend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          timepoints: [
+            { hours: 0, snapshot: form },
+            { hours: Number(hours) || 6, snapshot: fu },
+          ],
+        }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      setTrend(await res.json())
+    } catch {
+      setTrendError('Backend unavailable — start the API on :8054.')
+      setTrend(null)
+    } finally {
+      setTrendLoading(false)
     }
   }
 
@@ -204,6 +253,34 @@ export default function RiskPage() {
 
               <button onClick={assess} disabled={loading} className="w-full cyber-button py-3">
                 {loading ? 'ASSESSING…' : 'ASSESS RISK'}
+              </button>
+            </div>
+
+            {/* Follow-up reading → trend */}
+            <div className="cyber-panel p-6 hud-corner mt-6">
+              <h2 className="text-lg font-mono mb-1 glow-text flex items-center text-cyber-white">
+                <TrendingUp className="w-5 h-5 mr-2 text-cyber-green" />
+                FOLLOW-UP READING
+              </h2>
+              <p className="text-xs text-cyber-green/60 mb-5">
+                A later reading → NEWS2 trajectory &amp; lactate clearance vs the snapshot above.
+              </p>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <NumberField label="Hours later" unit="h" value={followup.hours}
+                  onChange={(v: any) => setFu('hours', v)} />
+                {TREND_FIELDS.map((f) => (
+                  <NumberField key={f.key} label={f.label} unit={f.unit} step={f.step}
+                    value={followup[f.key]} onChange={(v: any) => setFu(f.key, v)} />
+                ))}
+              </div>
+              <label className="flex items-center gap-2 text-xs text-cyber-white/80 cursor-pointer mb-5">
+                <input type="checkbox" checked={!!followup.on_supplemental_o2}
+                  onChange={(e) => setFu('on_supplemental_o2', e.target.checked)}
+                  className="accent-[#2bff88] w-4 h-4" />
+                Supplemental O₂
+              </label>
+              <button onClick={assessTrend} disabled={trendLoading} className="w-full cyber-button py-3">
+                {trendLoading ? 'ASSESSING…' : 'ASSESS TREND'}
               </button>
             </div>
           </motion.div>
@@ -318,6 +395,58 @@ export default function RiskPage() {
                       {result.input_hash ? ` · hash ${result.input_hash}` : ''}
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {trendError && (
+              <div className="cyber-panel p-6 hud-corner border-cyber-red/40 mt-6">
+                <div className="flex items-center text-cyber-red">
+                  <AlertTriangle className="w-5 h-5 mr-2" /> {trendError}
+                </div>
+              </div>
+            )}
+
+            {trend && (
+              <div className="cyber-panel p-6 hud-corner mt-6">
+                <div className="flex items-baseline justify-between mb-1">
+                  <h3 className="text-lg font-mono glow-text flex items-center text-cyber-white">
+                    <TrendingUp className="w-5 h-5 mr-2 text-cyber-green" />
+                    DETERIORATION TREND
+                  </h3>
+                  <span className={`text-2xl font-black font-mono ${overallClass(trend.overall_trend_risk)}`}>
+                    {String(trend.overall_trend_risk).toUpperCase()}
+                  </span>
+                </div>
+                <div className="text-xs text-cyber-green/50 mb-4">
+                  over {trend.hours_span}h · {trend.computed_count}/{trend.total_trends} trends computed
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {trend.trends.map((t: any) => (
+                    <div key={t.key} className={`cyber-panel p-4 hud-corner ${!t.computable ? 'opacity-50' : ''}`}>
+                      <div className="flex items-start justify-between mb-1">
+                        <h4 className="font-mono text-sm text-cyber-white">{t.name}</h4>
+                        <span className={`text-xs font-mono px-2 py-0.5 border rounded ${bandClass(t.band)}`}>
+                          {t.computable ? `${t.value} · ${t.band}` : 'n/a'}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-cyber-green/50 mb-2">{t.target}</div>
+                      <p className="text-xs text-cyber-white/75 leading-relaxed mb-2">{t.interpretation}</p>
+                      {t.computable && t.components?.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-1">
+                          {t.components.map((c: any, i: number) => (
+                            <span key={i} className="text-[10px] font-mono text-cyber-green/70 bg-cyber-green/5 border border-cyber-green/15 rounded px-1.5 py-0.5">
+                              {c.name}: {String(c.value)}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="text-[10px] text-cyber-green/30 mt-1 truncate" title={t.reference}>{t.reference}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="text-[11px] text-cyber-white/40 leading-relaxed border-t border-cyber-green/15 pt-3 mt-4">
+                  {trend.disclaimer}
                 </div>
               </div>
             )}
