@@ -82,7 +82,10 @@ Derived in the adapter: `on_supplemental_o2 = FiO2 > 0.24`, `confusion = GCS < 1
   from `diagnoses_icd` / surgical service if you need the full SAPS II.
 - **Recalibration.** Expect published mortality coefficients (SAPS II, APACHE II) to
   need recalibration to MIMIC; report both original and recalibrated performance.
-- **Fairness.** Report AUROC/calibration across age, sex and ethnicity subgroups.
+- **Fairness.** The runner **automatically reports AUROC + event rate by sex and age
+  band** for the headline scores (see the "Fairness / subgroup analysis" section of the
+  report). To add ethnicity, carry `race` from `mimiciv_hosp.admissions` into the
+  extract and add it as a subgroup dimension in `validate_scores._dimension`.
 - **FiO2 units** vary by source; the adapter normalizes >1 as a percent.
 
 See [VALIDATION.md](VALIDATION.md) for the overall device-readiness posture.

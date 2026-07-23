@@ -89,6 +89,33 @@ def calibration_table(probs: Sequence[float], outcomes: Sequence[int],
     return table
 
 
+def subgroup_metrics(preds: Sequence[float], outcomes: Sequence[int],
+                     groups: Sequence[Any]) -> Dict[Any, Dict[str, Any]]:
+    """Per-subgroup discrimination — {group: {n, events, event_rate, auroc}}.
+
+    ``groups`` is a subgroup label per observation (e.g. sex, age band), aligned
+    with ``preds``/``outcomes``. Enables fairness/equity reporting: a large AUROC
+    gap across subgroups signals differential performance.
+    """
+    if not (len(preds) == len(outcomes) == len(groups)):
+        raise ValueError("preds, outcomes and groups must be the same length")
+    buckets: Dict[Any, Any] = {}
+    for p, o, g in zip(preds, outcomes, groups):
+        buckets.setdefault(g, ([], []))
+        buckets[g][0].append(p)
+        buckets[g][1].append(o)
+    out: Dict[Any, Dict[str, Any]] = {}
+    for g, (ps, os) in buckets.items():
+        ev = sum(os)
+        out[g] = {
+            "n": len(ps),
+            "events": ev,
+            "event_rate": round(ev / len(ps), 4) if ps else None,
+            "auroc": auroc(ps, os),
+        }
+    return out
+
+
 def validate(preds: Sequence[float], outcomes: Sequence[int],
              is_probability: bool = False, bins: int = 10) -> Dict[str, Any]:
     """Summary validation report for a score/probability against outcomes."""

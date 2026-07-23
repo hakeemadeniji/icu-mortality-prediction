@@ -52,3 +52,19 @@ def test_multiorgan_scores_lead():
     assert a["apache2"] > 0.70
     assert a["saps2"] > 0.70
     assert a["sofa"] > a["shock_index"]  # multi-organ beats single-axis
+
+
+def test_run_reports_fairness_subgroups():
+    import validate_scores
+
+    rep = validate_scores.run(n=1200, seed=5)
+    fair = rep["fairness"]
+    assert set(fair) == {"by_sex", "by_age"}
+    # Both sexes present, each with per-headline-score AUROC
+    assert {"M", "F"}.issubset(set(fair["by_sex"]))
+    assert fair["by_sex"]["M"]["auroc"].get("saps2") is not None
+    assert fair["by_sex"]["F"]["auroc"].get("sofa") is not None
+    # Multiple age bands, each carrying n and event_rate
+    assert len(fair["by_age"]) >= 3
+    for grp in fair["by_age"].values():
+        assert grp["n"] > 0 and grp["event_rate"] is not None

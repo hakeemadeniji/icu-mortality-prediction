@@ -52,3 +52,22 @@ def test_length_mismatch_raises():
         assert False, "expected ValueError"
     except ValueError:
         pass
+
+
+def test_subgroup_metrics():
+    preds = [0.1, 0.8, 0.2, 0.9, 0.3, 0.7]
+    outcomes = [0, 1, 0, 1, 0, 1]
+    groups = ["M", "M", "F", "F", "M", "F"]
+    r = vm.subgroup_metrics(preds, outcomes, groups)
+    assert set(r) == {"M", "F"}
+    assert r["M"]["n"] == 3 and r["M"]["events"] == 1
+    # F: preds .2,.9,.7 / outcomes 0,1,1 -> perfectly separated
+    assert r["F"]["auroc"] == 1.0
+
+
+def test_subgroup_metrics_length_mismatch():
+    try:
+        vm.subgroup_metrics([0.1, 0.2], [0, 1], ["M"])
+        assert False, "expected ValueError"
+    except ValueError:
+        pass
