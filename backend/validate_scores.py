@@ -48,12 +48,52 @@ def _saps2_probability(score: float) -> float:
     return 1.0 / (1.0 + math.exp(-logit))
 
 
+# Headline mortality scores used for the fairness/subgroup tables.
+HEADLINE = ["sofa", "apache2", "saps2", "news2"]
+
+
+def _age_group(a) -> str:
+    if a is None:
+        return "unknown"
+    a = float(a)
+    if a < 50: return "<50"
+    if a < 65: return "50-64"
+    if a < 80: return "65-79"
+    return "80+"
+
+
+def _dimension(cohort, outcomes, score_data, dim: str) -> Dict:
+    """Per-subgroup n/event-rate (cohort-level) + AUROC per headline score."""
+    labels = [
+        (snap.get("sex") or "U") if dim == "sex" else _age_group(snap.get("age"))
+        for snap in cohort
+    ]
+    groups: Dict[str, Dict] = {}
+    for lab in sorted(set(labels)):
+        idx = [i for i, l in enumerate(labels) if l == lab]
+        ev = sum(outcomes[i] for i in idx)
+        groups[lab] = {
+            "n": len(idx),
+            "event_rate": round(ev / len(idx), 4) if idx else None,
+            "auroc": {},
+        }
+    for key in HEADLINE:
+        d = score_data.get(key)
+        if not d:
+            continue
+        for lab, rep in vm.subgroup_metrics(d["preds"], d["ys"], d[dim]).items():
+            if lab in groups:
+                groups[lab]["auroc"][key] = rep["auroc"]
+    return groups
+
+
 def run(n: int = 3000, seed: int = 42) -> Dict:
     cohort, outcomes, source = load_cohort(n=n, seed=seed)
 
     per_score: Dict[str, Dict] = {}
+    score_data: Dict[str, Dict] = {}
     for scorer in cs._SCORERS:
-        preds, ys = [], []
+        preds, ys, sexes, ages = [], [], [], []
         name = key = None
         for snap, y in zip(cohort, outcomes):
             r = scorer(snap)
@@ -61,11 +101,10 @@ def run(n: int = 3000, seed: int = 42) -> Dict:
             if r.computable and isinstance(r.score, (int, float)):
                 preds.append(DIRECTION.get(r.key, 1) * float(r.score))
                 ys.append(y)
-        per_score[key] = {
-            "name": name,
-            "n": len(preds),
-            "auroc": vm.auroc(preds, ys),
-        }
+                sexes.append(snap.get("sex") or "U")
+                ages.append(_age_group(snap.get("age")))
+        per_score[key] = {"name": name, "n": len(preds), "auroc": vm.auroc(preds, ys)}
+        score_data[key] = {"preds": preds, "ys": ys, "sex": sexes, "age": ages}
 
     # SAPS II calibration against its predicted-mortality probability
     saps_probs, saps_y = [], []
@@ -75,6 +114,11 @@ def run(n: int = 3000, seed: int = 42) -> Dict:
             saps_probs.append(_saps2_probability(r.score))
             saps_y.append(y)
     saps_cal = vm.validate(saps_probs, saps_y, is_probability=True)
+
+    fairness = {
+        "by_sex": _dimension(cohort, outcomes, score_data, "sex"),
+        "by_age": _dimension(cohort, outcomes, score_data, "age"),
+    }
 
     return {
         "cohort": source,
@@ -87,6 +131,7 @@ def run(n: int = 3000, seed: int = 42) -> Dict:
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "per_score": per_score,
         "saps2_calibration": saps_cal,
+        "fairness": fairness,
     }
 
 
@@ -148,6 +193,36 @@ def write_report(report: Dict) -> None:
     for row in cal["calibration"]:
         lines.append(f"| {row['bin']} | {row['n']} | {row['mean_predicted']:.3f} "
                      f"| {row['observed_rate']:.3f} |")
+
+    # Fairness / subgroup analysis
+    fair = report.get("fairness", {})
+    if fair:
+        lines.append("\n## Fairness / subgroup analysis\n")
+        lines.append(
+            "AUROC (and event rate) for the headline mortality scores by subgroup. "
+            "Differential discrimination — an AUROC spread of more than ~0.05 across "
+            "subgroups — can indicate inequitable performance and warrants investigation "
+            "before deployment.\n"
+        )
+        for dim_title, dim_key in (("By sex", "by_sex"), ("By age group", "by_age")):
+            groups = fair.get(dim_key, {})
+            if not groups:
+                continue
+            lines.append(f"\n### {dim_title}\n")
+            lines.append("| Group | n | event rate | SOFA | APACHE II | SAPS II | NEWS2 |")
+            lines.append("|---|---:|---:|---:|---:|---:|---:|")
+            for g in sorted(groups):
+                d = groups[g]
+                a = d["auroc"]
+
+                def fmt(k):
+                    return f"{a[k]:.3f}" if a.get(k) is not None else "n/a"
+
+                er = f"{d['event_rate'] * 100:.1f}%" if d["event_rate"] is not None else "n/a"
+                lines.append(
+                    f"| {g} | {d['n']} | {er} | {fmt('sofa')} | {fmt('apache2')} "
+                    f"| {fmt('saps2')} | {fmt('news2')} |"
+                )
 
     lines.append("\n## Interpretation\n")
     if synth:
