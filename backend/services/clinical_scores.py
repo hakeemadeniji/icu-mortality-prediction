@@ -20,6 +20,7 @@ in api/risk.py). Missing values are None.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, List, Optional
 
@@ -579,10 +580,428 @@ def score_kdigo_aki(s: Dict[str, Any]) -> ScoreResult:
                        missing=[] if base else ["baseline_creatinine (recommended)"])
 
 
+# ---------------------------------------------------------------------------
+# APACHE II — Acute Physiology and Chronic Health Evaluation II (Knaus 1985)
+# ICU mortality: 12 acute-physiology variables (0–4 each) + age + chronic health.
+# Unmeasured physiology variables are scored 0 (per the original method) and the
+# data completeness is reported. Requires at least age + GCS.
+# ---------------------------------------------------------------------------
+def score_apache2(s: Dict[str, Any]) -> ScoreResult:
+    key, name = "apache2", "APACHE II"
+    target = "ICU mortality (acute physiology + age + chronic health)"
+    ref = "Knaus et al., Crit Care Med 1985;13:818-829"
+
+    age = _num(s.get("age"))
+    gcs = _num(s.get("gcs"))
+    if age is None or gcs is None:
+        return _insufficient(key, name, target, ref,
+                             [k for k in ["age", "gcs"] if _num(s.get(k)) is None])
+
+    comps: List[Dict[str, Any]] = []
+    aps = 0
+    measured = 0
+    missing_vars: List[str] = []
+
+    def add(nm, val, pts):
+        nonlocal aps
+        aps += pts
+        comps.append(_component(nm, val, pts))
+
+    # 1 Temperature (°C)
+    temp = _num(s.get("temperature"))
+    if temp is not None:
+        if temp >= 41: p = 4
+        elif temp >= 39: p = 3
+        elif temp >= 38.5: p = 1
+        elif temp >= 36: p = 0
+        elif temp >= 34: p = 1
+        elif temp >= 32: p = 2
+        elif temp >= 30: p = 3
+        else: p = 4
+        add("Temperature", temp, p); measured += 1
+    else:
+        missing_vars.append("temperature")
+
+    # 2 Mean arterial pressure (mmHg)
+    map_val = _num(s.get("map"))
+    sbp, dbp = _num(s.get("sbp")), _num(s.get("dbp"))
+    if map_val is None and sbp is not None and dbp is not None:
+        map_val = (sbp + 2 * dbp) / 3
+    if map_val is not None:
+        if map_val >= 160: p = 4
+        elif map_val >= 130: p = 3
+        elif map_val >= 110: p = 2
+        elif map_val >= 70: p = 0
+        elif map_val >= 50: p = 2
+        else: p = 4
+        add("Mean arterial pressure", round(map_val, 0), p); measured += 1
+    else:
+        missing_vars.append("MAP")
+
+    # 3 Heart rate
+    hr = _num(s.get("heart_rate"))
+    if hr is not None:
+        if hr >= 180: p = 4
+        elif hr >= 140: p = 3
+        elif hr >= 110: p = 2
+        elif hr >= 70: p = 0
+        elif hr >= 55: p = 2
+        elif hr >= 40: p = 3
+        else: p = 4
+        add("Heart rate", hr, p); measured += 1
+    else:
+        missing_vars.append("heart_rate")
+
+    # 4 Respiratory rate
+    rr = _num(s.get("resp_rate"))
+    if rr is not None:
+        if rr >= 50: p = 4
+        elif rr >= 35: p = 3
+        elif rr >= 25: p = 1
+        elif rr >= 12: p = 0
+        elif rr >= 10: p = 1
+        elif rr >= 6: p = 2
+        else: p = 4
+        add("Respiratory rate", rr, p); measured += 1
+    else:
+        missing_vars.append("resp_rate")
+
+    # 5 Oxygenation: A-aDO2 if FiO2≥0.5, else PaO2
+    fio2 = _num(s.get("fio2"))
+    pao2 = _num(s.get("pao2"))
+    paco2 = _num(s.get("paco2"))
+    ox = None
+    if fio2 is not None and pao2 is not None:
+        f = fio2 / 100.0 if fio2 > 1.0 else fio2
+        if f >= 0.5:
+            if paco2 is not None:
+                aado2 = f * 713.0 - paco2 / 0.8 - pao2
+                if aado2 >= 500: ox = 4
+                elif aado2 >= 350: ox = 3
+                elif aado2 >= 200: ox = 2
+                else: ox = 0
+                add("A-aDO2 (FiO2≥0.5)", round(aado2, 0), ox); measured += 1
+        else:
+            if pao2 > 70: ox = 0
+            elif pao2 >= 61: ox = 1
+            elif pao2 >= 55: ox = 3
+            else: ox = 4
+            add("PaO2 (FiO2<0.5)", pao2, ox); measured += 1
+    if ox is None:
+        missing_vars.append("oxygenation (FiO2/PaO2[/PaCO2])")
+
+    # 6 Arterial pH
+    ph = _num(s.get("arterial_ph"))
+    if ph is not None:
+        if ph >= 7.7: p = 4
+        elif ph >= 7.6: p = 3
+        elif ph >= 7.5: p = 1
+        elif ph >= 7.33: p = 0
+        elif ph >= 7.25: p = 2
+        elif ph >= 7.15: p = 3
+        else: p = 4
+        add("Arterial pH", ph, p); measured += 1
+    else:
+        missing_vars.append("arterial_ph")
+
+    # 7 Sodium
+    na = _num(s.get("sodium"))
+    if na is not None:
+        if na >= 180: p = 4
+        elif na >= 160: p = 3
+        elif na >= 155: p = 2
+        elif na >= 150: p = 1
+        elif na >= 130: p = 0
+        elif na >= 120: p = 2
+        elif na >= 111: p = 3
+        else: p = 4
+        add("Sodium", na, p); measured += 1
+    else:
+        missing_vars.append("sodium")
+
+    # 8 Potassium
+    k = _num(s.get("potassium"))
+    if k is not None:
+        if k >= 7: p = 4
+        elif k >= 6: p = 3
+        elif k >= 5.5: p = 1
+        elif k >= 3.5: p = 0
+        elif k >= 3: p = 1
+        elif k >= 2.5: p = 2
+        else: p = 4
+        add("Potassium", k, p); measured += 1
+    else:
+        missing_vars.append("potassium")
+
+    # 9 Creatinine (mg/dL) — original doubles for acute renal failure (not modeled)
+    cr = _num(s.get("creatinine"))
+    if cr is not None:
+        if cr >= 3.5: p = 4
+        elif cr >= 2.0: p = 3
+        elif cr >= 1.5: p = 2
+        elif cr >= 0.6: p = 0
+        else: p = 2
+        add("Creatinine", cr, p); measured += 1
+    else:
+        missing_vars.append("creatinine")
+
+    # 10 Hematocrit (%)
+    hct = _num(s.get("hematocrit"))
+    if hct is not None:
+        if hct >= 60: p = 4
+        elif hct >= 50: p = 2
+        elif hct >= 46: p = 1
+        elif hct >= 30: p = 0
+        elif hct >= 20: p = 2
+        else: p = 4
+        add("Hematocrit", hct, p); measured += 1
+    else:
+        missing_vars.append("hematocrit")
+
+    # 11 WBC (x10^3/µL)
+    wbc = _num(s.get("wbc"))
+    if wbc is not None:
+        if wbc >= 40: p = 4
+        elif wbc >= 20: p = 2
+        elif wbc >= 15: p = 1
+        elif wbc >= 3: p = 0
+        elif wbc >= 1: p = 2
+        else: p = 4
+        add("WBC", wbc, p); measured += 1
+    else:
+        missing_vars.append("wbc")
+
+    # 12 Glasgow Coma Scale (points = 15 − GCS)
+    gcs_pts = int(round(15 - gcs))
+    add("GCS (15 − GCS)", gcs, gcs_pts); measured += 1
+
+    # Age points
+    if age >= 75: agep = 6
+    elif age >= 65: agep = 5
+    elif age >= 55: agep = 3
+    elif age >= 45: agep = 2
+    else: agep = 0
+    comps.append(_component("Age points", age, agep))
+
+    # Chronic health points
+    chp = 0
+    if s.get("severe_comorbidity"):
+        chp = 2 if s.get("postop_elective") else 5
+    comps.append(_component("Chronic health points", bool(s.get("severe_comorbidity")), chp))
+
+    total = aps + agep + chp
+
+    if total < 8: band, mort = "low", "~4-8%"
+    elif total < 15: band, mort = "medium", "~8-15%"
+    elif total < 25: band, mort = "high", "~25-40%"
+    else: band, mort = "critical", "~55-85%"
+
+    interp = (f"APACHE II {total} (APS {aps} + age {agep} + chronic {chp}); "
+              f"approx. hospital mortality {mort}. Acute-physiology variables "
+              f"measured: {measured}/12")
+    interp += "; unmeasured scored 0 (may underestimate)." if measured < 12 else "."
+
+    return ScoreResult(key, name, target, score=total, max_score=71, band=band,
+                       interpretation=interp, components=comps, reference=ref,
+                       missing=missing_vars)
+
+
+# ---------------------------------------------------------------------------
+# SAPS II — Simplified Acute Physiology Score II (Le Gall 1993)
+# 17 variables; yields a *predicted mortality probability* via the published
+# logistic regression. Requires at least age + GCS.
+# ---------------------------------------------------------------------------
+def score_saps2(s: Dict[str, Any]) -> ScoreResult:
+    key, name = "saps2", "SAPS II"
+    target = "ICU mortality (predicted probability, 17 variables)"
+    ref = "Le Gall et al., JAMA 1993;270:2957-2963"
+
+    age = _num(s.get("age"))
+    gcs = _num(s.get("gcs"))
+    if age is None or gcs is None:
+        return _insufficient(key, name, target, ref,
+                             [k for k in ["age", "gcs"] if _num(s.get(k)) is None])
+
+    comps: List[Dict[str, Any]] = []
+    total = 0
+    measured = 0
+    missing_vars: List[str] = []
+
+    def add(nm, val, pts):
+        nonlocal total
+        total += pts
+        comps.append(_component(nm, val, pts))
+
+    # Age
+    if age >= 80: p = 18
+    elif age >= 75: p = 16
+    elif age >= 70: p = 15
+    elif age >= 60: p = 12
+    elif age >= 40: p = 7
+    else: p = 0
+    add("Age", age, p)
+
+    # Heart rate
+    hr = _num(s.get("heart_rate"))
+    if hr is not None:
+        if hr < 40: p = 11
+        elif hr < 70: p = 2
+        elif hr < 120: p = 0
+        elif hr < 160: p = 4
+        else: p = 7
+        add("Heart rate", hr, p); measured += 1
+    else:
+        missing_vars.append("heart_rate")
+
+    # Systolic BP
+    sbp = _num(s.get("sbp"))
+    if sbp is not None:
+        if sbp < 70: p = 13
+        elif sbp < 100: p = 5
+        elif sbp < 200: p = 0
+        else: p = 2
+        add("Systolic BP", sbp, p); measured += 1
+    else:
+        missing_vars.append("sbp")
+
+    # Temperature
+    temp = _num(s.get("temperature"))
+    if temp is not None:
+        p = 3 if temp >= 39 else 0
+        add("Temperature ≥39", temp, p); measured += 1
+    else:
+        missing_vars.append("temperature")
+
+    # PaO2/FiO2 — only scored if mechanically ventilated / CPAP
+    pao2, fio2 = _num(s.get("pao2")), _num(s.get("fio2"))
+    vent = bool(s.get("mechanical_ventilation"))
+    if vent and pao2 is not None and fio2:
+        f = fio2 / 100.0 if fio2 > 1.0 else fio2
+        pf = pao2 / f
+        if pf < 100: p = 11
+        elif pf < 200: p = 9
+        else: p = 6
+        add("PaO2/FiO2 (ventilated)", round(pf, 0), p); measured += 1
+    elif not vent:
+        add("PaO2/FiO2 (not ventilated)", "n/a", 0); measured += 1
+    else:
+        missing_vars.append("PaO2/FiO2 (PaO2 & FiO2)")
+
+    # Urine output (L/24h; input as mL/24h)
+    uo_ml = _num(s.get("urine_output_ml"))
+    if uo_ml is not None:
+        uo = uo_ml / 1000.0
+        if uo < 0.5: p = 11
+        elif uo < 1.0: p = 4
+        else: p = 0
+        add("Urine output (L/24h)", round(uo, 2), p); measured += 1
+    else:
+        missing_vars.append("urine_output_ml")
+
+    # Urea (mmol/L) — accept BUN (mg/dL) and convert
+    urea = _num(s.get("urea"))
+    bun = _num(s.get("bun"))
+    if urea is None and bun is not None:
+        urea = bun / 2.8
+    if urea is not None:
+        if urea < 10: p = 0
+        elif urea < 30: p = 6
+        else: p = 10
+        add("Urea (mmol/L)", round(urea, 1), p); measured += 1
+    else:
+        missing_vars.append("urea/bun")
+
+    # WBC
+    wbc = _num(s.get("wbc"))
+    if wbc is not None:
+        if wbc < 1: p = 12
+        elif wbc < 20: p = 0
+        else: p = 3
+        add("WBC", wbc, p); measured += 1
+    else:
+        missing_vars.append("wbc")
+
+    # Potassium
+    k = _num(s.get("potassium"))
+    if k is not None:
+        p = 3 if (k < 3 or k >= 5) else 0
+        add("Potassium", k, p); measured += 1
+    else:
+        missing_vars.append("potassium")
+
+    # Sodium
+    na = _num(s.get("sodium"))
+    if na is not None:
+        if na < 125: p = 5
+        elif na < 145: p = 0
+        else: p = 1
+        add("Sodium", na, p); measured += 1
+    else:
+        missing_vars.append("sodium")
+
+    # Bicarbonate
+    hco3 = _num(s.get("bicarbonate"))
+    if hco3 is not None:
+        if hco3 < 15: p = 6
+        elif hco3 < 20: p = 3
+        else: p = 0
+        add("Bicarbonate", hco3, p); measured += 1
+    else:
+        missing_vars.append("bicarbonate")
+
+    # Bilirubin (mg/dL)
+    bili = _num(s.get("bilirubin"))
+    if bili is not None:
+        if bili < 4: p = 0
+        elif bili < 6: p = 4
+        else: p = 9
+        add("Bilirubin", bili, p); measured += 1
+    else:
+        missing_vars.append("bilirubin")
+
+    # GCS
+    if gcs < 6: p = 26
+    elif gcs < 9: p = 13
+    elif gcs < 11: p = 7
+    elif gcs < 14: p = 5
+    else: p = 0
+    add("GCS", gcs, p); measured += 1
+
+    # Chronic disease (take the highest applicable)
+    if s.get("aids"): p, cd = 17, "AIDS"
+    elif s.get("hematologic_malignancy"): p, cd = 10, "Hematologic malignancy"
+    elif s.get("metastatic_cancer"): p, cd = 9, "Metastatic cancer"
+    else: p, cd = 0, "none"
+    add("Chronic disease", cd, p)
+
+    # Admission type (defaults to medical for ICU context)
+    at = s.get("admission_type") or "medical"
+    at_pts = {"scheduled_surgical": 0, "medical": 6, "unscheduled_surgical": 8}.get(at, 6)
+    add("Admission type", at, at_pts)
+
+    # Predicted mortality from the published SAPS II logistic
+    logit = -7.7631 + 0.0737 * total + 0.9971 * math.log(total + 1)
+    mortality = 1.0 / (1.0 + math.exp(-logit))
+
+    if mortality < 0.10: band = "low"
+    elif mortality < 0.25: band = "medium"
+    elif mortality < 0.50: band = "high"
+    else: band = "critical"
+
+    interp = f"SAPS II {total} → predicted ICU mortality {mortality * 100:.0f}%."
+    interp += (f" Variables measured: {measured}/12"
+               + ("; unmeasured scored 0 (may underestimate)." if measured < 12 else "."))
+
+    return ScoreResult(key, name, target, score=total, max_score=163, band=band,
+                       interpretation=interp, components=comps, reference=ref,
+                       missing=missing_vars)
+
+
 # The ordered catalog of scoring functions.
 _SCORERS = [
     score_news2, score_qsofa, score_sofa, score_sirs, score_curb65,
     score_shock_index, score_rox, score_pf_ratio, score_kdigo_aki,
+    score_apache2, score_saps2,
 ]
 
 

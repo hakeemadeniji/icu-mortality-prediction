@@ -36,6 +36,8 @@ severe band across all computed scores.
 | **ROX Index** | Respiratory failure — high-flow O₂ failure & intubation risk | SpO₂, FiO₂, RR |
 | **PaO₂/FiO₂** | Acute hypoxemic respiratory failure / ARDS severity | PaO₂, FiO₂ |
 | **KDIGO AKI** | Acute kidney injury stage | creatinine, baseline creatinine |
+| **APACHE II** | ICU mortality (acute physiology + age + chronic health) | 12 physiology vars + age + chronic health |
+| **SAPS II** | ICU mortality (predicted probability) | 17 vars + admission type + chronic disease |
 
 ---
 
@@ -97,6 +99,25 @@ Staged by creatinine vs. baseline: Stage 1 = 1.5–1.9× or ≥0.3 mg/dL rise; S
 captured. Without a baseline, staged coarsely from absolute creatinine.
 - **Ref:** KDIGO AKI Guideline, *Kidney Int Suppl* 2012;2:1–138.
 
+### APACHE II — Acute Physiology and Chronic Health Evaluation II
+ICU mortality score (0–71) = **Acute Physiology Score** (12 variables, 0–4 points
+each: temp, MAP, HR, RR, oxygenation [A-aDO₂ if FiO₂≥0.5 else PaO₂], arterial pH,
+Na, K, creatinine, hematocrit, WBC, and GCS as 15−GCS) **+ age points** (≤44→0 …
+≥75→6) **+ chronic-health points** (severe organ insufficiency/immunocompromised:
++5 nonop/emergency, +2 elective post-op). Requires ≥ age + GCS; unmeasured
+physiology variables are scored 0 (per the original method) and the data
+completeness (`n/12`) is reported. Interpretation gives an approximate mortality
+band by score. **Ref:** Knaus et al., *Crit Care Med* 1985;13:818–829.
+
+### SAPS II — Simplified Acute Physiology Score II
+17 variables (HR, SBP, temp, PaO₂/FiO₂ [if ventilated], urine output, urea/BUN,
+WBC, K, Na, HCO₃, bilirubin, GCS, age, chronic disease [metastatic cancer /
+hematologic malignancy / AIDS], admission type). Uniquely, it yields a **predicted
+mortality probability** directly from the published logistic:
+`logit = −7.7631 + 0.0737·S + 0.9971·ln(S+1)`, `mortality = 1/(1+e^−logit)` — so the
+UI shows an actual % (e.g. SAPS II 59 → ~66%). Requires ≥ age + GCS; unmeasured
+variables scored 0. **Ref:** Le Gall et al., *JAMA* 1993;270:2957–2963.
+
 ---
 
 ## API
@@ -124,7 +145,8 @@ captured. Without a baseline, staged coarsely from absolute creatinine.
 
 Higher-effort or more data-hungry scores to add next, grouped by syndrome:
 
-- **ICU mortality:** APACHE II, SAPS II (need ABG, electrolytes, chronic-health items).
+- **ICU mortality:** APACHE II and SAPS II are now implemented; next candidates are
+  APACHE III/IV and MPM II (need larger variable sets / licensed coefficients).
 - **Sepsis/shock:** lactate clearance trend, MAP-targeted resuscitation flags.
 - **Cardiac:** in-hospital cardiac-arrest risk (eCART), arrhythmia burden.
 - **Respiratory:** SpO₂/FiO₂ (non-invasive P/F surrogate), HACOR for NIV failure.

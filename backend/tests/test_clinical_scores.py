@@ -145,6 +145,56 @@ def test_kdigo_stage1_by_small_rise():
     assert r.score == 1
 
 
+# --- APACHE II --------------------------------------------------------------
+def test_apache2_worked_example():
+    # APS: temp39.5(+3) MAP60(+2) HR130(+2) RR30(+1) AaDO2 307.8(+2) pH7.30(+2)
+    #      Na130(0) K5.0(0) Cr2.0(+3) Hct30(0) WBC15(+1) GCS12(15-12=+3) = 19
+    # + age70(+5) + chronic0 = 24
+    r = cs.score_apache2({
+        "age": 70, "gcs": 12, "temperature": 39.5, "sbp": 80, "dbp": 50,
+        "heart_rate": 130, "resp_rate": 30, "fio2": 0.6, "pao2": 70, "paco2": 40,
+        "arterial_ph": 7.30, "sodium": 130, "potassium": 5.0, "creatinine": 2.0,
+        "hematocrit": 30, "wbc": 15,
+    })
+    assert r.computable and r.score == 24 and r.band == "high"
+
+
+def test_apache2_requires_age_and_gcs():
+    r = cs.score_apache2({"temperature": 39})
+    assert not r.computable and "age" in r.missing and "gcs" in r.missing
+
+
+def test_apache2_chronic_health_points():
+    base = {"age": 40, "gcs": 15, "severe_comorbidity": True}
+    nonop = next(c for c in cs.score_apache2(base).components if "Chronic" in c["name"])
+    elective = next(c for c in cs.score_apache2({**base, "postop_elective": True}).components if "Chronic" in c["name"])
+    assert nonop["points"] == 5 and elective["points"] == 2
+
+
+# --- SAPS II ----------------------------------------------------------------
+def test_saps2_worked_example():
+    # age70(15) HR130(4) SBP80(5) temp38(0) PF150 vent(9) UO0.7L(4) urea12(6)
+    # WBC12(0) K4(0) Na140(0) HCO3 18(3) bili2(0) GCS10(7) chronic0 medical(6) = 59
+    r = cs.score_saps2({
+        "age": 70, "gcs": 10, "heart_rate": 130, "sbp": 80, "temperature": 38,
+        "mechanical_ventilation": True, "pao2": 90, "fio2": 0.6,
+        "urine_output_ml": 700, "urea": 12, "wbc": 12, "potassium": 4.0,
+        "sodium": 140, "bicarbonate": 18, "bilirubin": 2.0, "admission_type": "medical",
+    })
+    assert r.computable and r.score == 59
+    assert "66%" in r.interpretation  # published logistic -> ~66% mortality
+
+
+def test_saps2_not_ventilated_pf_scores_zero():
+    r = cs.score_saps2({"age": 30, "gcs": 15, "mechanical_ventilation": False})
+    pf = next(c for c in r.components if "PaO2/FiO2" in c["name"])
+    assert pf["points"] == 0
+
+
+def test_saps2_requires_age_and_gcs():
+    assert not cs.score_saps2({"heart_rate": 80}).computable
+
+
 # --- Aggregate --------------------------------------------------------------
 def test_assess_overall_and_alerts():
     out = cs.assess({
