@@ -1,10 +1,10 @@
-# Validation Results — functional benchmark
+# Validation Results — functional benchmark (synthetic cohort)
 
-> **Synthetic cohort — methodology / functional validation, NOT clinical evidence.** These numbers show the scores discriminate outcomes on a reproducible synthetic cohort whose mortality is driven by multi-organ organ-failure burden (independent of any score's output). Genuine clinical validation requires a real labeled ICU cohort; the same runner (`backend/validate_scores.py`) accepts one via `load_cohort`.
+> **Synthetic cohort — methodology / functional validation, NOT clinical evidence.** These numbers show the scores discriminate outcomes on a reproducible synthetic cohort whose mortality is driven by multi-organ organ-failure burden (independent of any score's output). Genuine clinical validation requires a real labeled ICU cohort; the same runner (`backend/validate_scores.py`) accepts one via `MIMIC_COHORT_CSV` — see `docs/MIMIC_VALIDATION.md`.
 
 - Cohort: synthetic (services/synthetic_cohort.py) · n = 3000 · seed = 42
 - Outcome: in-hospital mortality · events = 614 (20.5 %)
-- Engine version: 1.0.0 · generated 2026-07-23T10:50:31.928878+00:00
+- Engine version: 1.0.0 · generated 2026-07-23T11:56:32.903081+00:00
 
 
 ## Discrimination (AUROC, risk-oriented)
@@ -44,5 +44,5 @@
 
 Multi-organ severity scores (SOFA, APACHE II, SAPS II) and the NEWS2 early-warning score discriminate best; single-axis scores (Shock Index, KDIGO) discriminate least — the clinically expected ordering, since this cohort's mortality is driven by multi-organ burden. This confirms the engine computes and orders risk correctly end-to-end.
 
-Note the SAPS II calibration table: it discriminates well but **under-predicts** observed mortality on this cohort — exactly the kind of finding real validation surfaces, and why published coefficients generally need **local recalibration**. Absolute values are properties of the synthetic DGP, not any real population; re-run on real ICU data (`load_cohort`) for clinical evidence.
+Note the SAPS II calibration table: it discriminates well but **under-predicts** observed mortality on this cohort — exactly the kind of finding real validation surfaces, and why published coefficients generally need **local recalibration**. Absolute values are properties of the synthetic DGP, not any real population; re-run on real ICU data (`MIMIC_COHORT_CSV`) for clinical evidence.
 
