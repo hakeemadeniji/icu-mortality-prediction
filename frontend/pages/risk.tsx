@@ -7,12 +7,17 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8054'
 
 // Field names match the backend ClinicalSnapshot exactly (no mapping needed).
 const defaultForm: Record<string, any> = {
-  age: 72, sex: 'M',
+  age: 72, sex: 'M', admission_type: 'medical',
   heart_rate: 118, resp_rate: 26, sbp: 96, dbp: 58, temperature: 38.6,
   spo2: 91, fio2: 0.4, on_supplemental_o2: true, gcs: 14, confusion: false,
   mechanical_ventilation: false, vasopressors: false,
   wbc: 15.5, platelets: 110, bilirubin: 1.8, creatinine: 2.2,
   baseline_creatinine: 1.0, bun: 32, lactate: 3.1, pao2: 72,
+  // Blood gas & chemistry (APACHE II / SAPS II)
+  arterial_ph: 7.32, paco2: 42, sodium: 134, potassium: 4.6, bicarbonate: 19,
+  hematocrit: 34, urine_output_ml: 900,
+  severe_comorbidity: false, postop_elective: false,
+  metastatic_cancer: false, hematologic_malignancy: false, aids: false,
 }
 
 const bandClass = (band: string): string =>
@@ -53,11 +58,25 @@ const LABS: FieldDef[] = [
   { key: 'lactate', label: 'Lactate', unit: 'mmol/L', step: 0.1 },
   { key: 'pao2', label: 'PaO₂', unit: 'mmHg' },
 ]
+const CHEM: FieldDef[] = [
+  { key: 'arterial_ph', label: 'Arterial pH', unit: 'pH', step: 0.01 },
+  { key: 'paco2', label: 'PaCO₂', unit: 'mmHg' },
+  { key: 'sodium', label: 'Sodium', unit: 'mmol/L' },
+  { key: 'potassium', label: 'Potassium', unit: 'mmol/L', step: 0.1 },
+  { key: 'bicarbonate', label: 'Bicarbonate', unit: 'mEq/L' },
+  { key: 'hematocrit', label: 'Hematocrit', unit: '%' },
+  { key: 'urine_output_ml', label: 'Urine output', unit: 'mL/24h' },
+]
 const FLAGS: FieldDef[] = [
   { key: 'on_supplemental_o2', label: 'Supplemental O₂' },
   { key: 'confusion', label: 'New confusion' },
   { key: 'mechanical_ventilation', label: 'Mech. ventilation' },
   { key: 'vasopressors', label: 'Vasopressors' },
+  { key: 'severe_comorbidity', label: 'Severe comorbidity' },
+  { key: 'postop_elective', label: 'Elective post-op' },
+  { key: 'metastatic_cancer', label: 'Metastatic cancer' },
+  { key: 'hematologic_malignancy', label: 'Heme malignancy' },
+  { key: 'aids', label: 'AIDS' },
 ]
 
 export default function RiskPage() {
@@ -123,6 +142,19 @@ export default function RiskPage() {
                 </div>
               </div>
 
+              <div className="mb-4">
+                <label className="block text-[11px] text-cyber-green/70 mb-1 uppercase tracking-wider">Admission type</label>
+                <select
+                  value={form.admission_type}
+                  onChange={(e) => setField('admission_type', e.target.value)}
+                  className="cyber-input"
+                >
+                  <option value="medical">Medical</option>
+                  <option value="unscheduled_surgical">Unscheduled surgical</option>
+                  <option value="scheduled_surgical">Scheduled surgical</option>
+                </select>
+              </div>
+
               <SectionLabel icon={<HeartPulse className="w-4 h-4" />} text="Vitals" />
               <div className="grid grid-cols-2 gap-3 mb-4">
                 {VITALS.map((f) => (
@@ -134,6 +166,14 @@ export default function RiskPage() {
               <SectionLabel icon={<FlaskConical className="w-4 h-4" />} text="Labs" />
               <div className="grid grid-cols-2 gap-3 mb-4">
                 {LABS.map((f) => (
+                  <NumberField key={f.key} label={f.label} unit={f.unit} step={f.step}
+                    value={form[f.key]} onChange={(v: any) => setField(f.key, v)} />
+                ))}
+              </div>
+
+              <SectionLabel icon={<FlaskConical className="w-4 h-4" />} text="Blood gas & chemistry" />
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                {CHEM.map((f) => (
                   <NumberField key={f.key} label={f.label} unit={f.unit} step={f.step}
                     value={form[f.key]} onChange={(v: any) => setField(f.key, v)} />
                 ))}
@@ -179,7 +219,7 @@ export default function RiskPage() {
                   Enter a patient snapshot and run the assessment
                 </div>
                 <div className="text-sm text-cyber-green/40 mt-2">
-                  9 validated scores across deterioration, sepsis, pneumonia, shock, respiratory & renal
+                  11 validated scores across deterioration, sepsis, pneumonia, shock, respiratory, renal & ICU mortality
                 </div>
               </div>
             )}

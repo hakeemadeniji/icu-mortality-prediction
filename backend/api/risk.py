@@ -57,9 +57,21 @@ class ClinicalSnapshot(BaseModel):
     lactate: Optional[float] = Field(None, description="mmol/L")
     pao2: Optional[float] = Field(None, description="arterial PaO2, mmHg")
     paco2: Optional[float] = Field(None, description="arterial PaCO2, mmHg")
+    arterial_ph: Optional[float] = Field(None, description="arterial pH")
+    sodium: Optional[float] = Field(None, description="serum sodium, mmol/L")
+    potassium: Optional[float] = Field(None, description="serum potassium, mmol/L")
+    bicarbonate: Optional[float] = Field(None, description="serum HCO3, mEq/L")
+    hematocrit: Optional[float] = Field(None, description="hematocrit, %")
+    urine_output_ml: Optional[float] = Field(None, description="urine output, mL/24h")
 
-    # Context
+    # Context (chronic health / admission — APACHE II & SAPS II)
     suspected_infection: Optional[bool] = Field(None)
+    severe_comorbidity: Optional[bool] = Field(None, description="APACHE II: severe organ insufficiency / immunocompromised")
+    postop_elective: Optional[bool] = Field(None, description="APACHE II: elective post-op (else nonop/emergency)")
+    metastatic_cancer: Optional[bool] = Field(None)
+    hematologic_malignancy: Optional[bool] = Field(None)
+    aids: Optional[bool] = Field(None)
+    admission_type: Optional[str] = Field(None, description="SAPS II: medical | scheduled_surgical | unscheduled_surgical")
 
 
 @router.post("/assess")
