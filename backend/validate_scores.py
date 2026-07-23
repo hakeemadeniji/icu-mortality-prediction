@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import csv
 import math
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -26,9 +27,20 @@ REPO = Path(__file__).resolve().parent.parent
 DIRECTION = cs.RISK_DIRECTION
 
 
-def load_cohort(n: int = 3000, seed: int = 42) -> Tuple[List[Dict], List[int]]:
-    """Return (snapshots, outcomes). Swap this for a real cohort loader."""
-    return synthetic_cohort.generate_cohort(n=n, seed=seed)
+def load_cohort(n: int = 3000, seed: int = 42) -> Tuple[List[Dict], List[int], str]:
+    """Return (snapshots, outcomes, source_label).
+
+    If the MIMIC_COHORT_CSV env var points to an extract produced by
+    scripts/sql/mimic/first_day_cohort.sql, validate on that REAL cohort;
+    otherwise use the reproducible synthetic cohort.
+    """
+    csv_path = os.environ.get("MIMIC_COHORT_CSV")
+    if csv_path:
+        from services import mimic_adapter
+        snaps, outcomes = mimic_adapter.load_cohort_from_csv(csv_path)
+        return snaps, outcomes, f"MIMIC-IV ({os.path.basename(csv_path)})"
+    snaps, outcomes = synthetic_cohort.generate_cohort(n=n, seed=seed)
+    return snaps, outcomes, "synthetic (services/synthetic_cohort.py)"
 
 
 def _saps2_probability(score: float) -> float:
@@ -37,7 +49,7 @@ def _saps2_probability(score: float) -> float:
 
 
 def run(n: int = 3000, seed: int = 42) -> Dict:
-    cohort, outcomes = load_cohort(n=n, seed=seed)
+    cohort, outcomes, source = load_cohort(n=n, seed=seed)
 
     per_score: Dict[str, Dict] = {}
     for scorer in cs._SCORERS:
@@ -65,7 +77,8 @@ def run(n: int = 3000, seed: int = 42) -> Dict:
     saps_cal = vm.validate(saps_probs, saps_y, is_probability=True)
 
     return {
-        "cohort": "synthetic (services/synthetic_cohort.py)",
+        "cohort": source,
+        "is_synthetic": source.startswith("synthetic"),
         "n": len(cohort),
         "seed": seed,
         "events": sum(outcomes),
@@ -89,16 +102,29 @@ def write_report(report: Dict) -> None:
 
     # Markdown
     md = REPO / "docs" / "VALIDATION_RESULTS.md"
+    synth = report.get("is_synthetic", True)
     lines = []
-    lines.append("# Validation Results — functional benchmark\n")
     lines.append(
-        "> **Synthetic cohort — methodology / functional validation, NOT clinical "
-        "evidence.** These numbers show the scores discriminate outcomes on a "
-        "reproducible synthetic cohort whose mortality is driven by multi-organ "
-        "organ-failure burden (independent of any score's output). Genuine clinical "
-        "validation requires a real labeled ICU cohort; the same runner "
-        "(`backend/validate_scores.py`) accepts one via `load_cohort`.\n"
+        f"# Validation Results — {'functional benchmark (synthetic cohort)' if synth else 'real cohort'}\n"
     )
+    if synth:
+        lines.append(
+            "> **Synthetic cohort — methodology / functional validation, NOT clinical "
+            "evidence.** These numbers show the scores discriminate outcomes on a "
+            "reproducible synthetic cohort whose mortality is driven by multi-organ "
+            "organ-failure burden (independent of any score's output). Genuine clinical "
+            "validation requires a real labeled ICU cohort; the same runner "
+            "(`backend/validate_scores.py`) accepts one via `MIMIC_COHORT_CSV` — see "
+            "`docs/MIMIC_VALIDATION.md`.\n"
+        )
+    else:
+        lines.append(
+            "> **Real-cohort validation.** Discrimination and calibration of the scores "
+            "on a real labeled ICU cohort. Interpret in light of the cohort's inclusion "
+            "criteria and time window; published mortality coefficients (SAPS II, "
+            "APACHE II) generally require **local recalibration**. Report subgroup "
+            "performance (age, sex, ethnicity) for fairness before any clinical use.\n"
+        )
     lines.append(
         f"- Cohort: {report['cohort']} · n = {report['n']} · seed = {report['seed']}\n"
         f"- Outcome: in-hospital mortality · events = {report['events']} "
@@ -124,18 +150,26 @@ def write_report(report: Dict) -> None:
                      f"| {row['observed_rate']:.3f} |")
 
     lines.append("\n## Interpretation\n")
-    lines.append(
-        "Multi-organ severity scores (SOFA, APACHE II, SAPS II) and the NEWS2 "
-        "early-warning score discriminate best; single-axis scores (Shock Index, "
-        "KDIGO) discriminate least — the clinically expected ordering, since this "
-        "cohort's mortality is driven by multi-organ burden. This confirms the engine "
-        "computes and orders risk correctly end-to-end.\n\n"
-        "Note the SAPS II calibration table: it discriminates well but **under-predicts** "
-        "observed mortality on this cohort — exactly the kind of finding real validation "
-        "surfaces, and why published coefficients generally need **local recalibration**. "
-        "Absolute values are properties of the synthetic DGP, not any real population; "
-        "re-run on real ICU data (`load_cohort`) for clinical evidence.\n"
-    )
+    if synth:
+        lines.append(
+            "Multi-organ severity scores (SOFA, APACHE II, SAPS II) and the NEWS2 "
+            "early-warning score discriminate best; single-axis scores (Shock Index, "
+            "KDIGO) discriminate least — the clinically expected ordering, since this "
+            "cohort's mortality is driven by multi-organ burden. This confirms the engine "
+            "computes and orders risk correctly end-to-end.\n\n"
+            "Note the SAPS II calibration table: it discriminates well but **under-predicts** "
+            "observed mortality on this cohort — exactly the kind of finding real validation "
+            "surfaces, and why published coefficients generally need **local recalibration**. "
+            "Absolute values are properties of the synthetic DGP, not any real population; "
+            "re-run on real ICU data (`MIMIC_COHORT_CSV`) for clinical evidence.\n"
+        )
+    else:
+        lines.append(
+            "AUROC quantifies discrimination; the SAPS II calibration table shows "
+            "reliability (predicted vs. observed). Compare against published performance, "
+            "recalibrate coefficients to this population as needed, and evaluate subgroup "
+            "fairness before any deployment.\n"
+        )
     md.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 

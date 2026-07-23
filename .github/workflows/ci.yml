@@ -50,5 +50,5 @@ jobs:
         run: >-
           python -m pytest tests/ -q
           --cov=services.clinical_scores --cov=services.validation_metrics
-          --cov=services.synthetic_cohort
+          --cov=services.synthetic_cohort --cov=services.mimic_adapter
           --cov-report=term-missing --cov-fail-under=90

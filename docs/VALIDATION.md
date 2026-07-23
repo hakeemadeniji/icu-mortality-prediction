@@ -113,12 +113,19 @@ population** — this requires a labeled outcome cohort and is the key remaining
 
 > The synthetic benchmark proves the engine computes/orders risk correctly and that
 > the validation tooling works. It is **not** evidence of performance on real
-> patients. Point `validate_scores.load_cohort` at a real labeled ICU cohort to
-> generate clinical evidence.
+> patients.
+
+**Real-cohort path (built and ready):** a tested **MIMIC-IV adapter**
+(`services/mimic_adapter.py`) + a documented SQL extraction
+(`scripts/sql/mimic/first_day_cohort.sql`) turn a credentialed MIMIC-IV build into
+the cohort the harness consumes. With `MIMIC_COHORT_CSV` set, `validate_scores.py`
+produces a real-cohort report. Full instructions, variable mapping and caveats:
+**[docs/MIMIC_VALIDATION.md](MIMIC_VALIDATION.md)**.
 
 **Validation plan (to generate real evidence):**
-1. Assemble a retrospective adult-ICU cohort with the score inputs at a defined
-   time origin (e.g. first 24 h) and the outcome (e.g. in-hospital mortality).
+1. Obtain credentialed MIMIC-IV access, build the derived concepts, run the SQL
+   extraction, and run the harness (see MIMIC_VALIDATION.md). The cohort is first
+   adult ICU stays with first-24h physiology and in-hospital mortality.
 2. Run each score over the cohort; compute AUROC + calibration with the harness,
    overall and across subgroups (age, sex, ethnicity) for fairness.
 3. Report discrimination, calibration (and recalibrate/ refit coefficients if
