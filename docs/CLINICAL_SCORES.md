@@ -120,6 +120,23 @@ variables scored 0. **Ref:** Le Gall et al., *JAMA* 1993;270:2957–2963.
 
 ---
 
+## Trend-based indicators
+
+Single snapshots miss trajectory. `services/clinical_trends.py` operates on a short
+time series of snapshots (`[{hours, snapshot}]`) and surfaces:
+
+- **NEWS2 Trend** — the change in NEWS2 over time. A *rising* score (Δ ≥ 2) is the
+  core of the RCP "track-and-trigger" philosophy: deterioration is signalled by the
+  trajectory, not just the absolute value. Δ ≤ −2 = improving.
+  Ref: RCP NEWS2, 2017.
+- **Lactate Clearance** — `(lactate₀ − lactateₜ) / lactate₀ × 100`. **≥10%** clearance
+  is favorable; **<10%** is inadequate (higher mortality); **rising** lactate is
+  worst. Ref: Nguyen et al., *Crit Care Med* 2004;32:1637–1642; Surviving Sepsis.
+
+API: `POST /api/v1/risk/trend` with `{ "timepoints": [ {"hours": 0, "snapshot": {…}},
+{"hours": 6, "snapshot": {…}} ] }` → per-trend band/value/interpretation + an overall
+trend risk. Timepoints are sorted by `hours`; each trend needs ≥2 usable readings.
+
 ## API
 
 `POST /api/v1/risk/assess` with any subset of the fields in
@@ -147,7 +164,8 @@ Higher-effort or more data-hungry scores to add next, grouped by syndrome:
 
 - **ICU mortality:** APACHE II and SAPS II are now implemented; next candidates are
   APACHE III/IV and MPM II (need larger variable sets / licensed coefficients).
-- **Sepsis/shock:** lactate clearance trend, MAP-targeted resuscitation flags.
+- **Sepsis/shock:** MAP-targeted resuscitation flags (lactate clearance and NEWS2
+  trend are implemented — see "Trend-based indicators" above).
 - **Cardiac:** in-hospital cardiac-arrest risk (eCART), arrhythmia burden.
 - **Respiratory:** SpO₂/FiO₂ (non-invasive P/F surrogate), HACOR for NIV failure.
 - **Neuro:** CAM-ICU (delirium), RASS sedation.

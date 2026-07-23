@@ -16,7 +16,7 @@ import json
 import logging
 import uuid
 
-from services import clinical_scores
+from services import clinical_scores, clinical_trends
 from core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -125,6 +125,28 @@ async def assess_risk(snapshot: ClinicalSnapshot):
 async def intended_use():
     """Intended use, users, population and limitations (safety metadata)."""
     return clinical_scores.INTENDED_USE
+
+
+class TrendPoint(BaseModel):
+    """One timed observation in a trend series."""
+    hours: float = Field(..., description="hours from the first reading")
+    snapshot: ClinicalSnapshot
+
+
+class TrendRequest(BaseModel):
+    timepoints: List[TrendPoint] = Field(..., min_length=1, description="ordered time series")
+
+
+@router.post("/trend")
+async def assess_trend(req: TrendRequest):
+    """Trend-based indicators over a time series (NEWS2 trajectory, lactate clearance)."""
+    try:
+        tps = [{"hours": tp.hours, "snapshot": tp.snapshot.model_dump()}
+               for tp in req.timepoints]
+        return clinical_trends.assess_trends(tps)
+    except Exception as e:
+        logger.error(f"Trend assessment error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/catalog")
