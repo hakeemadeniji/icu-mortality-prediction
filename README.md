@@ -298,6 +298,8 @@ npm cache clean --force
 ```
 
 ## Documentation
+- **[docs/CLINICAL_SCORES.md](docs/CLINICAL_SCORES.md)**: Clinical scoring engine — variables, thresholds, evidence, references
+- **[docs/VALIDATION.md](docs/VALIDATION.md)**: Validation & device-readiness dossier — intended use, hazard analysis, V&V, traceability, and the regulatory gap
 - **CONTEXT.md**: Detailed session context and changes
 - **STARTUP_GUIDE.md**: Complete startup instructions
 - **SYSTEM_README.md**: Technical architecture details

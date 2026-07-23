@@ -10,12 +10,31 @@ risk level. See services/clinical_scores.py and docs/CLINICAL_SCORES.md.
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional, Dict, Any
+from datetime import datetime, timezone
+from pathlib import Path
+import json
 import logging
+import uuid
 
 from services import clinical_scores
+from core.config import settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# Append-only audit trail (traceability). Privacy-conscious: records the input
+# HASH + result summary, not raw PHI. A production deployment would persist the
+# full inputs in a secured, access-controlled, retention-managed store.
+_AUDIT_LOG = Path(settings.LOGS_DIR) / "risk_audit.jsonl"
+
+
+def _audit(entry: Dict[str, Any]) -> None:
+    try:
+        _AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with open(_AUDIT_LOG, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+    except Exception as exc:  # audit must never break the clinical response
+        logger.warning("audit write failed: %s", exc)
 
 
 class ClinicalSnapshot(BaseModel):
@@ -76,12 +95,36 @@ class ClinicalSnapshot(BaseModel):
 
 @router.post("/assess")
 async def assess_risk(snapshot: ClinicalSnapshot):
-    """Compute all applicable clinical risk scores for a patient snapshot."""
+    """Compute all applicable clinical risk scores for a patient snapshot.
+
+    The response carries traceability metadata (engine version, deterministic
+    input hash, unique assessment id + timestamp) and any input-validation
+    warnings, and the assessment is recorded to the audit trail.
+    """
     try:
-        return clinical_scores.assess(snapshot.model_dump())
+        result = clinical_scores.assess(snapshot.model_dump())
+        result["assessment_id"] = str(uuid.uuid4())
+        result["assessed_at"] = datetime.now(timezone.utc).isoformat()
+
+        _audit({
+            "assessment_id": result["assessment_id"],
+            "assessed_at": result["assessed_at"],
+            "engine_version": result["engine_version"],
+            "input_hash": result["input_hash"],
+            "overall_risk": result["overall_risk"],
+            "computed_count": result["computed_count"],
+            "n_warnings": len(result["input_warnings"]),
+        })
+        return result
     except Exception as e:
         logger.error(f"Risk assessment error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/intended-use")
+async def intended_use():
+    """Intended use, users, population and limitations (safety metadata)."""
+    return clinical_scores.INTENDED_USE
 
 
 @router.get("/catalog")

@@ -110,6 +110,17 @@ export default function RiskPage() {
     <div className="min-h-screen relative">
       <TopNav title="CLINICAL RISK PANEL" status="MULTI-SCORE ASSESSMENT" active="/risk" />
 
+      {/* Persistent safety banner (intended use) */}
+      <div className="bg-cyber-yellow/5 border-b border-cyber-yellow/20">
+        <div className="container mx-auto px-6 py-2 text-[11px] text-cyber-yellow/80 flex items-start gap-2">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <span>
+            Decision support only — <strong>not a validated medical device</strong>. For qualified
+            adult-ICU clinicians; not for autonomous diagnosis or treatment. See docs/VALIDATION.md.
+          </span>
+        </div>
+      </div>
+
       <main className="container mx-auto px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Input form */}
@@ -226,6 +237,21 @@ export default function RiskPage() {
 
             {result && (
               <div className="space-y-6">
+                {/* Input-data validation warnings */}
+                {result.input_warnings?.length > 0 && (
+                  <div className="cyber-panel p-4 hud-corner border-cyber-yellow/40">
+                    <div className="text-cyber-yellow text-xs font-mono font-bold mb-2 flex items-center">
+                      <AlertTriangle className="w-4 h-4 mr-2" />
+                      INPUT DATA WARNINGS ({result.input_warnings.length})
+                    </div>
+                    <ul className="space-y-1">
+                      {result.input_warnings.map((w: any, i: number) => (
+                        <li key={i} className="text-[11px] text-cyber-yellow/80">• {w.message}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                 {/* Overall + alerts */}
                 <div className="cyber-panel p-6 hud-corner">
                   <div className="flex items-baseline justify-between mb-4">
@@ -285,6 +311,13 @@ export default function RiskPage() {
 
                 <div className="text-[11px] text-cyber-white/40 leading-relaxed border-t border-cyber-green/15 pt-3">
                   {result.disclaimer}
+                  {result.engine_version && (
+                    <div className="mt-2 font-mono text-cyber-white/30">
+                      engine v{result.engine_version}
+                      {result.assessment_id ? ` · assessment ${String(result.assessment_id).slice(0, 8)}` : ''}
+                      {result.input_hash ? ` · hash ${result.input_hash}` : ''}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

@@ -46,5 +46,8 @@ jobs:
         run: python -m compileall -q api core services main.py
       - name: Import smoke test (loads app + routers + services)
         run: python -c "import main; print('backend import OK, routes:', len(main.app.routes))"
-      - name: Unit tests (clinical scoring engine)
-        run: python -m pytest tests/ -q
+      - name: Unit tests + coverage gate (clinical engine)
+        run: >-
+          python -m pytest tests/ -q
+          --cov=services.clinical_scores --cov=services.validation_metrics
+          --cov-report=term-missing --cov-fail-under=90
