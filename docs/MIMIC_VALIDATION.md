@@ -68,6 +68,7 @@ This writes a **real-cohort** `docs/VALIDATION_RESULTS.md` and
 | fio2 | fio2_max | first_day_bg_art | max (percent → fraction) |
 | urine_output_ml | urineoutput | first_day_urine_output | 24h total |
 | mechanical_ventilation | vent_flag | ventilation | any invasive day 1 |
+| ethnicity | race | icustay_detail.race | normalized in adapter |
 | outcome | mortality | icustay_detail.hospital_expire_flag | — |
 
 Derived in the adapter: `on_supplemental_o2 = FiO2 > 0.24`, `confusion = GCS < 14`.
@@ -82,10 +83,10 @@ Derived in the adapter: `on_supplemental_o2 = FiO2 > 0.24`, `confusion = GCS < 1
   from `diagnoses_icd` / surgical service if you need the full SAPS II.
 - **Recalibration.** Expect published mortality coefficients (SAPS II, APACHE II) to
   need recalibration to MIMIC; report both original and recalibrated performance.
-- **Fairness.** The runner **automatically reports AUROC + event rate by sex and age
-  band** for the headline scores (see the "Fairness / subgroup analysis" section of the
-  report). To add ethnicity, carry `race` from `mimiciv_hosp.admissions` into the
-  extract and add it as a subgroup dimension in `validate_scores._dimension`.
+- **Fairness.** The runner **automatically reports AUROC + event rate by sex, age band
+  and ethnicity** for the headline scores (see the "Fairness / subgroup analysis" section
+  of the report). Ethnicity is normalized from MIMIC `race` (`icustay_detail.race`) into
+  coarse groups; refine `mimic_adapter._ethnicity_group` for your local categories.
 - **FiO2 units** vary by source; the adapter normalizes >1 as a percent.
 
 See [VALIDATION.md](VALIDATION.md) for the overall device-readiness posture.

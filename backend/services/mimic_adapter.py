@@ -34,6 +34,24 @@ def _f(row: Dict[str, str], col: str) -> Optional[float]:
         return None
 
 
+def _ethnicity_group(raw: Optional[str]) -> str:
+    """Normalize MIMIC `race` free-text into a coarse fairness subgroup."""
+    if not raw:
+        return "Unknown"
+    r = str(raw).upper()
+    if "WHITE" in r:
+        return "White"
+    if "BLACK" in r or "AFRICAN" in r:
+        return "Black"
+    if "HISPANIC" in r or "LATINO" in r:
+        return "Hispanic"
+    if "ASIAN" in r:
+        return "Asian"
+    if any(t in r for t in ("UNKNOWN", "UNABLE", "DECLINED", "NOT SPECIFIED", "PATIENT DECLINED")):
+        return "Unknown"
+    return "Other"
+
+
 def _worst_deviation(a: Optional[float], b: Optional[float], center: float) -> Optional[float]:
     """Of two candidate values, return the one furthest from a physiologic center
     (used for parameters that are abnormal in both directions: temp, Na, K)."""
@@ -66,6 +84,7 @@ def snapshot_from_row(row: Dict[str, str]) -> Tuple[Dict[str, Any], int]:
     snap: Dict[str, Any] = {
         "age": _f(row, "age"),
         "sex": gender,
+        "ethnicity": _ethnicity_group(row.get("race")),
         "heart_rate": _f(row, "heart_rate_max"),
         "resp_rate": _f(row, "resp_rate_max"),
         "sbp": _f(row, "sbp_min"),

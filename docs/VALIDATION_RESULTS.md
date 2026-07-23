@@ -3,41 +3,41 @@
 > **Synthetic cohort — methodology / functional validation, NOT clinical evidence.** These numbers show the scores discriminate outcomes on a reproducible synthetic cohort whose mortality is driven by multi-organ organ-failure burden (independent of any score's output). Genuine clinical validation requires a real labeled ICU cohort; the same runner (`backend/validate_scores.py`) accepts one via `MIMIC_COHORT_CSV` — see `docs/MIMIC_VALIDATION.md`.
 
 - Cohort: synthetic (services/synthetic_cohort.py) · n = 3000 · seed = 42
-- Outcome: in-hospital mortality · events = 614 (20.5 %)
-- Engine version: 1.0.0 · generated 2026-07-23T12:12:08.726357+00:00
+- Outcome: in-hospital mortality · events = 631 (21.0 %)
+- Engine version: 1.0.0 · generated 2026-07-23T12:24:44.136374+00:00
 
 
 ## Discrimination (AUROC, risk-oriented)
 
 | Score | n | AUROC |
 |---|---:|---:|
-| SOFA | 3000 | 0.813 |
-| APACHE II | 3000 | 0.784 |
-| SAPS II | 3000 | 0.776 |
-| NEWS2 | 3000 | 0.765 |
-| ROX Index | 3000 | 0.743 |
-| PaO2/FiO2 Ratio | 3000 | 0.722 |
-| qSOFA | 3000 | 0.715 |
-| CURB-65 | 3000 | 0.712 |
-| SIRS | 3000 | 0.700 |
-| Shock Index | 3000 | 0.674 |
-| KDIGO AKI Stage | 3000 | 0.666 |
+| SOFA | 3000 | 0.810 |
+| APACHE II | 3000 | 0.797 |
+| SAPS II | 3000 | 0.783 |
+| NEWS2 | 3000 | 0.749 |
+| CURB-65 | 3000 | 0.716 |
+| ROX Index | 3000 | 0.716 |
+| qSOFA | 3000 | 0.708 |
+| PaO2/FiO2 Ratio | 3000 | 0.700 |
+| SIRS | 3000 | 0.696 |
+| Shock Index | 3000 | 0.683 |
+| KDIGO AKI Stage | 3000 | 0.664 |
 
 ## SAPS II calibration (predicted mortality probability)
 
-- AUROC 0.776 · Brier 0.1386 · n 3000 · events 614
+- AUROC 0.783 · Brier 0.1408 · n 3000 · events 631
 
 | Predicted bin | n | mean predicted | observed rate |
 |---|---:|---:|---:|
-| 0.0-0.1 | 1964 | 0.045 | 0.102 |
-| 0.1-0.2 | 556 | 0.146 | 0.282 |
-| 0.2-0.3 | 164 | 0.242 | 0.366 |
+| 0.0-0.1 | 1964 | 0.045 | 0.096 |
+| 0.1-0.2 | 556 | 0.146 | 0.308 |
+| 0.2-0.3 | 164 | 0.242 | 0.408 |
 | 0.3-0.4 | 123 | 0.344 | 0.496 |
-| 0.4-0.5 | 64 | 0.450 | 0.562 |
-| 0.5-0.6 | 58 | 0.544 | 0.621 |
-| 0.6-0.7 | 21 | 0.653 | 0.762 |
-| 0.7-0.8 | 30 | 0.751 | 0.900 |
-| 0.8-0.9 | 10 | 0.846 | 1.000 |
+| 0.4-0.5 | 64 | 0.450 | 0.578 |
+| 0.5-0.6 | 58 | 0.544 | 0.810 |
+| 0.6-0.7 | 21 | 0.653 | 0.952 |
+| 0.7-0.8 | 30 | 0.751 | 0.733 |
+| 0.8-0.9 | 10 | 0.846 | 0.800 |
 | 0.9-1.0 | 10 | 0.947 | 1.000 |
 
 ## Fairness / subgroup analysis
@@ -49,17 +49,27 @@ AUROC (and event rate) for the headline mortality scores by subgroup. Differenti
 
 | Group | n | event rate | SOFA | APACHE II | SAPS II | NEWS2 |
 |---|---:|---:|---:|---:|---:|---:|
-| F | 1389 | 19.9% | 0.819 | 0.790 | 0.786 | 0.778 |
-| M | 1611 | 21.0% | 0.807 | 0.779 | 0.766 | 0.753 |
+| F | 1389 | 20.3% | 0.789 | 0.777 | 0.769 | 0.729 |
+| M | 1611 | 21.7% | 0.828 | 0.812 | 0.795 | 0.766 |
 
 ### By age group
 
 | Group | n | event rate | SOFA | APACHE II | SAPS II | NEWS2 |
 |---|---:|---:|---:|---:|---:|---:|
-| 50-64 | 1014 | 17.9% | 0.826 | 0.793 | 0.802 | 0.755 |
-| 65-79 | 920 | 22.7% | 0.824 | 0.764 | 0.761 | 0.771 |
-| 80+ | 414 | 28.0% | 0.777 | 0.757 | 0.712 | 0.751 |
-| <50 | 652 | 16.4% | 0.819 | 0.809 | 0.776 | 0.796 |
+| 50-64 | 1014 | 20.3% | 0.803 | 0.782 | 0.771 | 0.736 |
+| 65-79 | 920 | 24.3% | 0.815 | 0.792 | 0.787 | 0.755 |
+| 80+ | 414 | 27.5% | 0.821 | 0.772 | 0.778 | 0.768 |
+| <50 | 652 | 13.3% | 0.821 | 0.806 | 0.751 | 0.759 |
+
+### By ethnicity
+
+| Group | n | event rate | SOFA | APACHE II | SAPS II | NEWS2 |
+|---|---:|---:|---:|---:|---:|---:|
+| Asian | 130 | 19.2% | 0.867 | 0.789 | 0.853 | 0.820 |
+| Black | 432 | 23.2% | 0.799 | 0.766 | 0.770 | 0.728 |
+| Hispanic | 310 | 16.8% | 0.750 | 0.773 | 0.764 | 0.687 |
+| Other | 310 | 20.6% | 0.798 | 0.780 | 0.783 | 0.742 |
+| White | 1818 | 21.4% | 0.819 | 0.811 | 0.784 | 0.760 |
 
 ## Interpretation
 

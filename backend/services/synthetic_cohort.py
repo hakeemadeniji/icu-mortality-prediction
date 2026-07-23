@@ -84,6 +84,15 @@ def generate_cohort(n: int = 3000, seed: int = 42) -> Tuple[List[Dict], List[int
     heme = rng.random(n) < 0.03
     aids = rng.random(n) < 0.01
 
+    # Ethnicity — drawn INDEPENDENTLY of physiology and outcome. Real-world
+    # disparities are structural, not biological, so the synthetic "null" should
+    # show roughly equitable discrimination across groups (that's the point of the
+    # fairness axis: on real data, gaps that appear are worth investigating).
+    ethnicity = rng.choice(
+        ["White", "Black", "Hispanic", "Asian", "Other"],
+        size=n, p=[0.60, 0.15, 0.10, 0.05, 0.10],
+    )
+
     # TRUE outcome model: total organ-failure burden (SOFA-like) + age + noise.
     burden = (relu(cardio) + relu(resp) + relu(renal) + relu(hepatic)
               + relu(coag) + relu(neuro) + relu(metab))
@@ -127,6 +136,7 @@ def generate_cohort(n: int = 3000, seed: int = 42) -> Tuple[List[Dict], List[int
             "metastatic_cancer": bool(metastatic[i]),
             "hematologic_malignancy": bool(heme[i]),
             "aids": bool(aids[i]),
+            "ethnicity": str(ethnicity[i]),
         })
     return cohort, [int(v) for v in y]
 

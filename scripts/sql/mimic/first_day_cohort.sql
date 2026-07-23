@@ -19,6 +19,7 @@ SELECT
     icd.stay_id,
     icd.admission_age                                   AS age,
     icd.gender                                          AS gender,
+    icd.race                                            AS race,        -- normalized by the adapter
     icd.hospital_expire_flag                            AS mortality,   -- 1 = died in hospital
 
     -- Vital signs (first day) — risk-relevant extreme
